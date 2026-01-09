@@ -1,0 +1,15 @@
+<svg width="640" height="640" viewBox="0 0 640 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14"/>
+      <stop offset="50%" stop-color="#18D6C3"/>
+      <stop offset="100%" stop-color="#E7C66A"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="640" rx="32" fill="#0B0F14"/>
+  <rect x="72" y="72" width="496" height="496" rx="28" fill="url(#g)" opacity="0.18"/>
+  <circle cx="320" cy="320" r="180" stroke="#18D6C3" stroke-width="2" opacity="0.5"/>
+  <circle cx="320" cy="320" r="120" stroke="#E7C66A" stroke-width="2" opacity="0.6"/>
+  <path d="M200 360 C260 240, 380 240, 440 360" stroke="#18D6C3" stroke-width="3" opacity="0.7"/>
+  <text x="320" y="420" text-anchor="middle" fill="#E7C66A" font-family="Space Grotesk, sans-serif" font-size="28" letter-spacing="4">XOLOLEGEND</text>
+</svg>

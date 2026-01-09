@@ -1,0 +1,30 @@
+[
+  {
+    "id": "xolosarmy-naturals",
+    "name": "XolosArmy Naturals",
+    "description": "Foundational guardians with organic obsidian textures.",
+    "supply": 444,
+    "floor": "4200 RMZ"
+  },
+  {
+    "id": "xololegend-genesis",
+    "name": "XOLOLEGEND Genesis",
+    "description": "Genesis legends forged with gold sigils.",
+    "supply": 222,
+    "floor": "6200 RMZ"
+  },
+  {
+    "id": "celestial-xolo",
+    "name": "Celestial Xolo",
+    "description": "Celestial guardians with aurora gradients.",
+    "supply": 333,
+    "floor": "3900 RMZ"
+  },
+  {
+    "id": "legends-tonalli",
+    "name": "Legends of Tonalli",
+    "description": "Fabled lore infused with Tonalli energy.",
+    "supply": 199,
+    "floor": "7100 RMZ"
+  }
+]
