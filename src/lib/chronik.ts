@@ -16,6 +16,15 @@ export type ChronikTokenInfo = {
 
 export type ChronikTx = Record<string, unknown>;
 export type ChronikUtxo = Record<string, unknown>;
+export type ChronikScriptUtxos = {
+  outputScript?: string;
+  utxos: ChronikUtxo[];
+};
+
+export type ChronikBlockchainInfo = {
+  tipHeight: number;
+  tipHash: string;
+};
 
 function joinChronikUrl(path: string) {
   const base = CHRONIK_URL.replace(/\/+$/, "");
@@ -61,10 +70,16 @@ export async function fetchTx(txId: string): Promise<ChronikTx> {
 export async function fetchUtxosByScript(params: {
   type: string;
   payload: string;
-}): Promise<ChronikUtxo[]> {
+}): Promise<ChronikScriptUtxos | ChronikUtxo[]> {
   const { type, payload } = params;
   if (!type || !payload) {
     throw new Error("Missing script type or payload for Chronik UTXO lookup.");
   }
-  return chronikFetch<ChronikUtxo[]>(`script/${type}/${payload}/utxos`);
+  return chronikFetch<ChronikScriptUtxos | ChronikUtxo[]>(
+    `script/${type}/${payload}/utxos`
+  );
+}
+
+export async function fetchBlockchainInfo(): Promise<ChronikBlockchainInfo> {
+  return chronikFetch<ChronikBlockchainInfo>("blockchain-info");
 }

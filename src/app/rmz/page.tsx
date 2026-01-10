@@ -1,14 +1,15 @@
 import listings from "@/data/listings.json";
 import { ListingCard } from "@/components/ListingCard";
+import { RmzOnChainSection } from "@/components/RmzOnChainSection";
 
 export default function RMZPage() {
   const rmzListings = listings.filter((listing) => listing.type === "rmz");
 
   return (
     <div className="space-y-10">
-      <section className="rounded-3xl border border-white/10 bg-obsidian-900/70 px-6 py-10">
-        <p className="text-xs uppercase tracking-[0.4em] text-white/50">RMZ Token</p>
-        <h1 className="mt-4 text-3xl font-semibold text-white md:text-4xl">Ofertas RMZ</h1>
+      <RmzOnChainSection />
+      <section className="rounded-3xl border border-white/10 bg-obsidian-900/70 px-6 py-8">
+        <h2 className="text-2xl font-semibold text-white">Ofertas RMZ</h2>
         <p className="mt-3 max-w-2xl text-sm text-white/70">
           Accede a ofertas verificadas para comprar o vender RMZ. Cada tarjeta incluye un
           Offer ID listo para copiar y abrir en Tonalli.

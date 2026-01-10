@@ -1,30 +1,96 @@
+import { parseAgoraTx } from "ecash-agora";
+
 import { fetchTx } from "@/lib/chronik";
+import { getReturnUrl, TONALLI_WEB_URL } from "@/lib/constants";
+import { openTonalliOffer } from "@/lib/tonalli";
 
 export type AgoraOffer = {
   offerTxId: string;
   tokenId?: string;
-  tokenAmountAtoms?: string;
-  priceSatoshis?: string;
+  amountAtoms?: string;
+  priceSats?: number;
+  isPartial?: boolean;
   sellerAddress?: string;
 };
 
-export type AgoraOfferResult = {
-  rawTx: Record<string, unknown>;
-  offer: AgoraOffer | null;
-};
+export type AgoraOfferStatus = "invalid" | "spent" | "not_found";
 
-function parseAgoraOfferFromTx(tx: Record<string, unknown>): AgoraOffer | null {
-  // Placeholder: real parsing should use ecash-agora or equivalent modules.
+export type AgoraOfferResult =
+  | { ok: true; rawTx: Record<string, unknown>; offer: AgoraOffer }
+  | {
+      ok: false;
+      rawTx?: Record<string, unknown>;
+      offer?: AgoraOffer;
+      status: AgoraOfferStatus;
+      error?: string;
+    };
+
+function parseAgoraOfferFromTx(
+  tx: Record<string, unknown>
+): { offer: AgoraOffer; spent: boolean } | null {
   if (!tx || typeof tx !== "object") {
     return null;
   }
-  return null;
+  const parsed = parseAgoraTx(tx as unknown as Parameters<typeof parseAgoraTx>[0]);
+  if (!parsed) {
+    return null;
+  }
+  if (parsed.type !== "ONESHOT") {
+    return null;
+  }
+  const offerTxId = String((tx as { txid?: string }).txid || "");
+  const tokenEntries = (tx as { tokenEntries?: Array<{ tokenId?: string }> })
+    .tokenEntries;
+  const outputs = (tx as {
+    outputs?: Array<{ token?: { atoms?: unknown } }>;
+  }).outputs;
+  const tokenId = tokenEntries?.[0]?.tokenId;
+  const atomsValue =
+    outputs?.[1]?.token && typeof outputs[1].token === "object"
+      ? (outputs[1].token as { atoms?: unknown }).atoms
+      : undefined;
+  const amountAtoms =
+    atomsValue !== undefined && atomsValue !== null ? String(atomsValue) : undefined;
+  const askedSats = Number(parsed.params.askedSats());
+  return {
+    offer: {
+      offerTxId,
+      tokenId,
+      amountAtoms,
+      priceSats: Number.isFinite(askedSats) ? askedSats : undefined,
+      isPartial: false
+    },
+    spent: Boolean(parsed.spentBy)
+  };
 }
 
 export async function loadOfferById(offerTxId: string): Promise<AgoraOfferResult> {
-  const rawTx = await fetchTx(offerTxId);
-  const offer = parseAgoraOfferFromTx(rawTx as Record<string, unknown>);
-  return { rawTx: rawTx as Record<string, unknown>, offer };
+  try {
+    const rawTx = await fetchTx(offerTxId);
+    const parsed = parseAgoraOfferFromTx(rawTx as Record<string, unknown>);
+    if (!parsed) {
+      return { ok: false, status: "invalid", rawTx: rawTx as Record<string, unknown> };
+    }
+    if (parsed.spent) {
+      return {
+        ok: false,
+        status: "spent",
+        rawTx: rawTx as Record<string, unknown>,
+        offer: parsed.offer
+      };
+    }
+    return {
+      ok: true,
+      rawTx: rawTx as Record<string, unknown>,
+      offer: parsed.offer
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: "not_found",
+      error: error instanceof Error ? error.message : "Chronik error"
+    };
+  }
 }
 
 export async function createSellOfferToken() {
@@ -33,6 +99,38 @@ export async function createSellOfferToken() {
   );
 }
 
-export async function acceptOfferById() {
-  throw new Error("acceptOfferById requires ecash-agora/ecash-lib integration.");
+type AcceptOfferByIdArgs = {
+  offerId: string;
+  returnUrl?: string;
+  deepLink?: string;
+  fallbackUrl?: string;
+};
+
+export async function acceptOfferById({
+  offerId,
+  returnUrl,
+  deepLink,
+  fallbackUrl
+}: AcceptOfferByIdArgs) {
+  const trimmed = offerId.trim();
+  if (!trimmed) {
+    throw new Error("Missing offerId for acceptOfferById.");
+  }
+  const encodedOfferId = encodeURIComponent(trimmed);
+  const resolvedReturnUrl = returnUrl ?? getReturnUrl(`/tx?offerId=${encodedOfferId}`);
+  const encodedReturnUrl = encodeURIComponent(resolvedReturnUrl);
+  const attachReturnUrl = (url: string) => {
+    if (!url || url.includes("returnUrl=")) {
+      return url;
+    }
+    const joiner = url.includes("?") ? "&" : "?";
+    return `${url}${joiner}returnUrl=${encodedReturnUrl}`;
+  };
+  const deep = attachReturnUrl(
+    deepLink ?? `tonalli://offer/${encodedOfferId}`
+  );
+  const fallback = attachReturnUrl(
+    fallbackUrl ?? `${TONALLI_WEB_URL}?offerId=${encodedOfferId}`
+  );
+  openTonalliOffer({ offerId: trimmed, deepLink: deep, fallbackUrl: fallback });
 }

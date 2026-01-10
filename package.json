@@ -9,6 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "chronik-client": "^4.1.0",
+    "ecash-agora": "^2.6.10",
+    "ecash-lib": "^4.5.2",
+    "ecashaddrjs": "^2.0.0",
     "next": "14.2.5",
     "react": "18.3.1",
     "react-dom": "18.3.1"

@@ -26,5 +26,7 @@ export function buildAtomicPurchaseTx(
   _params: AtomicExecutionParams,
   _ecashLib?: EcashLib
 ): AtomicExecutionResult {
-  throw new Error("Atomic execution requires ecash-lib integration.");
+  throw new Error(
+    "Atomic execution is handled via Tonalli deep-links; raw tx building is not wired yet."
+  );
 }
