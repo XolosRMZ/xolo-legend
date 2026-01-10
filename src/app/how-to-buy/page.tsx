@@ -2,13 +2,20 @@
 
 import { useState } from "react";
 
+import { openTonalliOffer } from "@/lib/tonalli";
+
 export default function HowToBuyPage() {
   const [offerId, setOfferId] = useState("");
+  const [error, setError] = useState("");
 
   const handleQuickBuy = () => {
-    if (!offerId.trim()) return;
-    const url = `tonalli://offer/${offerId.trim()}`;
-    window.open(url, "_blank");
+    const trimmedOfferId = offerId.trim();
+    if (!trimmedOfferId) {
+      setError("Ingresa un Offer ID.");
+      return;
+    }
+    setError("");
+    openTonalliOffer({ offerId: trimmedOfferId, fallbackUrl: "https://app.tonalli.cash/" });
   };
 
   return (
@@ -54,12 +61,20 @@ export default function HowToBuyPage() {
 
       <div className="sticky bottom-4 z-20">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 rounded-2xl border border-white/10 bg-obsidian-900/80 p-4 shadow-glow md:flex-row md:items-center">
-          <input
-            value={offerId}
-            onChange={(event) => setOfferId(event.target.value)}
-            placeholder="Ingresa Offer ID para compra rápida"
-            className="w-full flex-1 rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-sm text-white/80 placeholder:text-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
-          />
+          <div className="w-full flex-1">
+            <input
+              value={offerId}
+              onChange={(event) => {
+                setOfferId(event.target.value);
+                if (error) {
+                  setError("");
+                }
+              }}
+              placeholder="Ingresa Offer ID para compra rápida"
+              className="w-full rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-sm text-white/80 placeholder:text-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
+            />
+            {error ? <p className="mt-2 text-xs text-gold/80">{error}</p> : null}
+          </div>
           <button
             onClick={handleQuickBuy}
             className="rounded-xl border border-jade/40 bg-jade/10 px-5 py-3 text-sm text-jade transition hover:bg-jade/20"

@@ -1,5 +1,6 @@
-import listings from "@/data/listings.json";
 import { MarketplaceClient } from "@/components/MarketplaceClient";
+import listings from "@/data/listings.json";
+import { TONALLI_WEB_URL } from "@/lib/links";
 
 export default function MarketplacePage() {
   return (
@@ -17,7 +18,7 @@ export default function MarketplacePage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a
-              href="https://tonalli.app"
+              href={TONALLI_WEB_URL}
               className="rounded-full border border-jade/40 bg-jade/10 px-5 py-2 text-sm text-jade shadow-glow transition hover:bg-jade/20"
             >
               Open Tonalli

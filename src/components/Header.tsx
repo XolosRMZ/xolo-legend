@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { TONALLI_WEB_URL } from "@/lib/links";
+import { WalletButton } from "@/components/WalletButton";
+
 const navLinks = [
   { href: "/", label: "Marketplace" },
   { href: "/collections", label: "Collections" },
@@ -18,14 +21,12 @@ export function Header() {
           </Link>
           <div className="flex gap-2 lg:hidden">
             <a
-              href="https://tonalli.app"
+              href={TONALLI_WEB_URL}
               className="rounded-full border border-jade/40 px-3 py-1 text-xs text-jade"
             >
               Open Tonalli
             </a>
-            <button className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70">
-              Connect wallet
-            </button>
+            <WalletButton className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 transition hover:border-white/30" />
           </div>
         </div>
         <nav className="flex flex-wrap gap-3 text-sm text-white/70">
@@ -37,14 +38,12 @@ export function Header() {
         </nav>
         <div className="hidden gap-3 lg:flex">
           <a
-            href="https://tonalli.app"
+            href={TONALLI_WEB_URL}
             className="rounded-full border border-jade/40 bg-jade/10 px-4 py-2 text-xs text-jade shadow-glow transition hover:bg-jade/20"
           >
             Open Tonalli
           </a>
-          <button className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 transition hover:border-white/30">
-            Connect wallet
-          </button>
+          <WalletButton className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 transition hover:border-white/30" />
         </div>
       </div>
     </header>
