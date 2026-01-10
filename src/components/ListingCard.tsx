@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Listing } from "@/lib/types";
+import { openTonalliOffer } from "@/lib/tonalli";
 import { useFavorites, useTxid } from "@/lib/storage";
 import { useToast } from "@/components/ToastProvider";
 import { Modal } from "@/components/Modal";
@@ -20,10 +21,6 @@ export function ListingCard({ listing }: ListingCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isFavorite = favorites.includes(listing.id);
-  const tonalliUrl = useMemo(
-    () => listing.tonalliDeepLink || listing.tonalliFallbackUrl,
-    [listing]
-  );
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(listing.offerId);
@@ -101,15 +98,18 @@ export function ListingCard({ listing }: ListingCardProps) {
           >
             Copy Offer ID
           </button>
-          <a
-            href={tonalliUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Open offer in Tonalli"
+          <button
+            onClick={() =>
+              openTonalliOffer({
+                offerId: listing.offerId,
+                deepLink: listing.tonalliDeepLink,
+                fallbackUrl: listing.tonalliFallbackUrl
+              })
+            }
             className="rounded-xl border border-jade/40 bg-jade/10 px-3 py-2 text-center text-xs text-jade shadow-glow transition hover:border-jade hover:bg-jade/20"
           >
             Open in Tonalli
-          </a>
+          </button>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/60">
@@ -130,7 +130,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           rel="noreferrer"
           className="mt-4 inline-flex items-center justify-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-xs text-gold transition hover:border-gold hover:bg-gold/20"
         >
-          Comprar por WhatsApp (transferencia)
+          Contacta con el vendedor
         </a>
       </div>
 
