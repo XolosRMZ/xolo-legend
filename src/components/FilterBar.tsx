@@ -5,9 +5,11 @@ interface FilterBarProps {
   collection: string;
   sort: string;
   collections: string[];
+  showDemo: boolean;
   onSearchChange: (value: string) => void;
   onCollectionChange: (value: string) => void;
   onSortChange: (value: string) => void;
+  onShowDemoChange: (value: boolean) => void;
   onClear: () => void;
 }
 
@@ -16,9 +18,11 @@ export function FilterBar({
   collection,
   sort,
   collections,
+  showDemo,
   onSearchChange,
   onCollectionChange,
   onSortChange,
+  onShowDemoChange,
   onClear
 }: FilterBarProps) {
   return (
@@ -60,6 +64,26 @@ export function FilterBar({
         >
           Limpiar
         </button>
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3 text-xs text-white/70 md:w-auto">
+          <span>Show demo/invalid</span>
+          <button
+            onClick={() => onShowDemoChange(!showDemo)}
+            type="button"
+            className={`relative h-5 w-9 rounded-full border transition ${
+              showDemo
+                ? "border-jade/60 bg-jade/30"
+                : "border-white/20 bg-obsidian-900/80"
+            }`}
+            aria-pressed={showDemo}
+            aria-label="Show demo and invalid listings"
+          >
+            <span
+              className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white transition ${
+                showDemo ? "left-5" : "left-1"
+              }`}
+            />
+          </button>
+        </label>
       </div>
     </div>
   );

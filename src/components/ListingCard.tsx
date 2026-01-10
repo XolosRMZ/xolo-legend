@@ -9,27 +9,44 @@ import { useFavorites, useTxid } from "@/lib/storage";
 import { useToast } from "@/components/ToastProvider";
 import { Modal } from "@/components/Modal";
 import { useOnChain } from "@/state/onchain";
+import { RMZ_TOKEN_ID } from "@/lib/constants";
 
 interface ListingCardProps {
   listing: Listing;
+  isHighlighted?: boolean;
+  onRemove?: () => void;
 }
 
-export function ListingCard({ listing }: ListingCardProps) {
+export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardProps) {
   const { favorites, toggleFavorite } = useFavorites();
   const { txid, setTxid } = useTxid(listing.id);
   const { showToast } = useToast();
   const { offerStatusCache, verifyOffer, configWarning } = useOnChain();
   const [txidInput, setTxidInput] = useState(txid);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   const isFavorite = favorites.includes(listing.id);
   const offerStatus = offerStatusCache[listing.offerId];
   const isInvalidOrSpent =
-    offerStatus?.status === "invalid" || offerStatus?.status === "spent";
+    offerStatus?.status === "invalid" ||
+    offerStatus?.status === "spent" ||
+    offerStatus?.status === "not_found";
+  const isVerified = offerStatus?.status === "verified";
   const isChecking =
     offerStatus?.isChecking || offerStatus?.status === "unknown" || !offerStatus;
   const configBlocked = Boolean(configWarning) && listing.type === "rmz";
-  const tonalliDisabled = isInvalidOrSpent || configBlocked;
+  const tonalliDisabled = !isVerified || configBlocked;
+  const tokenMismatch =
+    offerStatus?.status === "verified" &&
+    Boolean(offerStatus.tokenId) &&
+    Boolean(RMZ_TOKEN_ID) &&
+    offerStatus.tokenId?.toLowerCase() !== RMZ_TOKEN_ID.toLowerCase();
+  const isExternalImage = !listing.image.startsWith("/");
+  const displayPrice =
+    listing.source === "registry" && offerStatus?.priceSats !== undefined
+      ? { amount: offerStatus.priceSats, symbol: "sats" }
+      : listing.price;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(listing.offerId);
@@ -61,7 +78,11 @@ export function ListingCard({ listing }: ListingCardProps) {
   const badgeLabel = isChecking
     ? "🟡 Checking…"
     : isInvalidOrSpent
-      ? "⚠️ Invalid/Spent"
+      ? offerStatus?.status === "spent"
+        ? "⚠️ Spent"
+        : offerStatus?.status === "not_found"
+          ? "⚠️ Not found"
+          : "⚠️ Invalid"
       : "✅ Verified on-chain";
   const badgeClasses = isChecking
     ? "border-white/10 text-white/60 bg-obsidian-950/70"
@@ -70,29 +91,73 @@ export function ListingCard({ listing }: ListingCardProps) {
       : "border-jade/40 text-jade bg-jade/10";
 
   return (
-    <div className="group relative flex h-full flex-col rounded-2xl border border-white/10 bg-obsidian-900/70 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] transition hover:border-jade/50 hover:shadow-glow">
-      <button
-        onClick={() => toggleFavorite(listing.id)}
-        aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-        className={`absolute right-4 top-4 z-10 rounded-full border px-2.5 py-2 text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade ${
-          isFavorite
-            ? "border-jade/60 bg-jade/10 text-jade"
-            : "border-white/10 text-white/60 hover:border-jade/40 hover:text-jade"
-        }`}
-      >
-        {isFavorite ? "♥" : "♡"}
-      </button>
+    <div
+      className={`group relative flex h-full flex-col rounded-2xl border border-white/10 bg-obsidian-900/70 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] transition hover:border-jade/50 hover:shadow-glow ${
+        isHighlighted ? "ring-2 ring-jade/60" : ""
+      }`}
+    >
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+        {onRemove ? (
+          <div className="relative">
+            <button
+              onClick={() => setIsManageOpen((prev) => !prev)}
+              aria-label="Manage listing"
+              className="rounded-full border border-white/10 px-2.5 py-2 text-xs text-white/60 transition hover:border-jade/40 hover:text-jade"
+            >
+              ⋯
+            </button>
+            {isManageOpen ? (
+              <div className="absolute right-0 top-10 w-40 rounded-xl border border-white/10 bg-obsidian-950/95 p-2 text-xs text-white/70 shadow-glow">
+                <button
+                  onClick={() => {
+                    onRemove();
+                    setIsManageOpen(false);
+                  }}
+                  className="w-full rounded-lg border border-white/10 px-3 py-2 text-left text-gold transition hover:border-gold/60 hover:text-gold"
+                >
+                  Remove listing
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <button
+          onClick={() => toggleFavorite(listing.id)}
+          aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+          className={`rounded-full border px-2.5 py-2 text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade ${
+            isFavorite
+              ? "border-jade/60 bg-jade/10 text-jade"
+              : "border-white/10 text-white/60 hover:border-jade/40 hover:text-jade"
+          }`}
+        >
+          {isFavorite ? "♥" : "♡"}
+        </button>
+      </div>
 
       <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10">
-        <Image
-          src={listing.image}
-          alt={listing.name}
-          fill
-          className="object-cover transition duration-500 group-hover:scale-[1.02]"
-        />
+        {isExternalImage ? (
+          <img
+            src={listing.image}
+            alt={listing.name}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+            loading="lazy"
+          />
+        ) : (
+          <Image
+            src={listing.image}
+            alt={listing.name}
+            fill
+            className="object-cover transition duration-500 group-hover:scale-[1.02]"
+          />
+        )}
         <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-obsidian-900/80 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/60">
           {listing.type === "nft" ? "NFT" : "RMZ"}
         </div>
+        {listing.source === "registry" ? (
+          <div className="absolute right-3 bottom-3 rounded-full border border-white/10 bg-obsidian-900/80 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
+            User listing
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-3 rounded-xl border border-jade/30 bg-obsidian-950/70 px-3 py-2 text-xs text-jade">
@@ -128,10 +193,10 @@ export function ListingCard({ listing }: ListingCardProps) {
         <div className="mt-4 flex items-center justify-between">
           <span className="text-sm text-white/50">Precio</span>
           <span className="text-base font-semibold text-gold">
-            {listing.price.amount.toLocaleString(undefined, {
+            {displayPrice.amount.toLocaleString(undefined, {
               maximumFractionDigits: 2
             })}{" "}
-            {listing.price.symbol}
+            {displayPrice.symbol}
           </span>
         </div>
 
@@ -163,7 +228,14 @@ export function ListingCard({ listing }: ListingCardProps) {
           </p>
         ) : null}
         {isInvalidOrSpent ? (
-          <p className="mt-3 text-xs text-gold">Offer is invalid or already spent.</p>
+          <p className="mt-3 text-xs text-gold">
+            Offer is invalid, spent, or not found.
+          </p>
+        ) : null}
+        {tokenMismatch ? (
+          <p className="mt-3 text-xs text-gold">
+            This offer tokenId does not match RMZ.
+          </p>
         ) : null}
 
         <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/60">
@@ -178,14 +250,16 @@ export function ListingCard({ listing }: ListingCardProps) {
           </button>
         </div>
 
-        <a
-          href={listing.whatsappUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex items-center justify-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-xs text-gold transition hover:border-gold hover:bg-gold/20"
-        >
-          Contacta con el vendedor
-        </a>
+        {listing.whatsappUrl ? (
+          <a
+            href={listing.whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex items-center justify-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-xs text-gold transition hover:border-gold hover:bg-gold/20"
+          >
+            Contacta con el vendedor
+          </a>
+        ) : null}
       </div>
 
       <Modal

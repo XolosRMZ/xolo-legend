@@ -19,7 +19,12 @@ import { loadOfferById } from "@/lib/agora";
 import { RMZ_STATE_TOKEN_ID, RMZ_TOKEN_ID } from "@/lib/constants";
 import { useWallet } from "@/lib/wallet";
 
-export type OfferStatusType = "verified" | "invalid" | "spent" | "unknown";
+export type OfferStatusType =
+  | "verified"
+  | "invalid"
+  | "spent"
+  | "not_found"
+  | "unknown";
 
 export type OfferStatus = {
   status: OfferStatusType;
@@ -214,7 +219,26 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
     }));
     try {
       const result = await loadOfferById(trimmed);
-      if (result.ok) {
+      if (result.ok && "parsed" in result && result.parsed === false) {
+        const next: OfferStatus = {
+          status: "unknown",
+          offerTxId: trimmed,
+          priceSats: cacheRef.current[trimmed]?.priceSats,
+          tokenId: cacheRef.current[trimmed]?.tokenId,
+          amountAtoms: cacheRef.current[trimmed]?.amountAtoms,
+          isPartial: cacheRef.current[trimmed]?.isPartial,
+          isChecking: true,
+          updatedAt: Date.now()
+        };
+        setOfferStatusCache((prev) => ({ ...prev, [trimmed]: next }));
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            verifyOffer(trimmed);
+          }, 0);
+        }
+        return next;
+      }
+      if (result.ok && "parsed" in result && result.parsed) {
         const next: OfferStatus = {
           status: "verified",
           offerTxId: trimmed,
@@ -231,9 +255,11 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
         status:
           result.status === "spent"
             ? "spent"
-            : result.status === "invalid" || result.status === "not_found"
-              ? "invalid"
-              : "unknown",
+            : result.status === "not_found"
+              ? "not_found"
+              : result.status === "invalid"
+                ? "invalid"
+                : "unknown",
         offerTxId: trimmed,
         priceSats: result.offer?.priceSats,
         tokenId: result.offer?.tokenId,

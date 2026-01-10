@@ -19,7 +19,8 @@ export interface Listing {
   status: ListingStatus;
   tonalliDeepLink: string;
   tonalliFallbackUrl: string;
-  whatsappUrl: string;
+  whatsappUrl?: string;
+  source?: "demo" | "registry";
 }
 
 export interface CollectionInfo {

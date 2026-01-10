@@ -1,8 +1,17 @@
-import { parseAgoraTx } from "ecash-agora";
-
 import { fetchTx } from "@/lib/chronik";
 import { getReturnUrl, TONALLI_WEB_URL } from "@/lib/constants";
 import { openTonalliOffer } from "@/lib/tonalli";
+
+let _agoraPromise: Promise<typeof import("ecash-agora")> | null = null;
+async function getAgora() {
+  if (typeof window === "undefined") {
+    throw new Error("Agora client-only");
+  }
+  if (!_agoraPromise) {
+    _agoraPromise = import("ecash-agora");
+  }
+  return _agoraPromise;
+}
 
 export type AgoraOffer = {
   offerTxId: string;
@@ -16,7 +25,8 @@ export type AgoraOffer = {
 export type AgoraOfferStatus = "invalid" | "spent" | "not_found";
 
 export type AgoraOfferResult =
-  | { ok: true; rawTx: Record<string, unknown>; offer: AgoraOffer }
+  | { ok: true; rawTx: Record<string, unknown>; offer: AgoraOffer; parsed: true }
+  | { ok: true; status: "exists"; tx: Record<string, unknown>; parsed: false }
   | {
       ok: false;
       rawTx?: Record<string, unknown>;
@@ -25,13 +35,14 @@ export type AgoraOfferResult =
       error?: string;
     };
 
-function parseAgoraOfferFromTx(
+async function parseAgoraOfferFromTx(
   tx: Record<string, unknown>
-): { offer: AgoraOffer; spent: boolean } | null {
+): Promise<{ offer: AgoraOffer; spent: boolean } | null> {
   if (!tx || typeof tx !== "object") {
     return null;
   }
-  const parsed = parseAgoraTx(tx as unknown as Parameters<typeof parseAgoraTx>[0]);
+  const { parseAgoraTx } = await getAgora();
+  const parsed = parseAgoraTx(tx as Parameters<typeof parseAgoraTx>[0]);
   if (!parsed) {
     return null;
   }
@@ -67,7 +78,15 @@ function parseAgoraOfferFromTx(
 export async function loadOfferById(offerTxId: string): Promise<AgoraOfferResult> {
   try {
     const rawTx = await fetchTx(offerTxId);
-    const parsed = parseAgoraOfferFromTx(rawTx as Record<string, unknown>);
+    if (typeof window === "undefined") {
+      return {
+        ok: true,
+        status: "exists",
+        tx: rawTx as Record<string, unknown>,
+        parsed: false
+      };
+    }
+    const parsed = await parseAgoraOfferFromTx(rawTx as Record<string, unknown>);
     if (!parsed) {
       return { ok: false, status: "invalid", rawTx: rawTx as Record<string, unknown> };
     }
@@ -82,7 +101,8 @@ export async function loadOfferById(offerTxId: string): Promise<AgoraOfferResult
     return {
       ok: true,
       rawTx: rawTx as Record<string, unknown>,
-      offer: parsed.offer
+      offer: parsed.offer,
+      parsed: true
     };
   } catch (error) {
     return {
