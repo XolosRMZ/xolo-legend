@@ -1,34 +1,23 @@
-<<<<<<< HEAD
-# xolo-legend
-=======
-# XOLOLEGEND Marketplace MVP
+# XOLOLEGEND — NFT + RMZ Marketplace (MVP)
 
-Production-ready MVP for the XOLOLEGEND NFT + RMZ token marketplace built with Next.js 14 (App Router), TypeScript, and Tailwind CSS.
+XOLOLEGEND is a dark, premium marketplace UI for **xolosArmy NFTs** and **RMZ (Xolos RMZ) token offers**, designed to work with **Tonalli Wallet** via deep links and a real connect callback flow.
 
-## Quick Start
+## Features (current)
+- Marketplace UI (NFTs + RMZ offers) driven by local JSON data
+- Offer ID shown under each card + Copy Offer ID
+- **Open in Tonalli**:
+  - deep link: `tonalli://offer/<offerId>`
+  - fallback: `https://app.tonalli.cash/?offerId=<offerId>`
+- Wallet connect flow (real callback):
+  - Connect button opens Tonalli connect
+  - Tonalli returns to `/connected?address=...&chain=ecash&wallet=tonalli`
+  - Session stored in `localStorage` (`xololegend_wallet_session`)
+- Favorites + TXID modal + clipboard helper with fallback
 
+## Requirements
+- Node.js 18+ (recommended)
+
+## Install & Run
 ```bash
 npm install
 npm run dev
-```
-
-Open http://localhost:3000
-
-## Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-## Project Notes
-
-- Listings live in `src/data/listings.json` and are rendered client-side with filters, sorting, and favorites.
-- Collections metadata lives in `src/data/collections.json`.
-- TXID confirmations and favorites persist in localStorage.
-- Images are local SVG placeholders under `public/placeholders`.
-
-## Deployment
-
-Any Node 18+ environment that supports Next.js 14 works (Vercel, Render, self-host). Build with `npm run build` and serve with `npm run start`.
->>>>>>> 35d9ca4 (Initial commit)
