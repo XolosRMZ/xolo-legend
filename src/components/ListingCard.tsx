@@ -32,13 +32,13 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
     offerStatus?.status === "invalid" ||
     offerStatus?.status === "spent" ||
     offerStatus?.status === "not_found";
-  const isVerified = offerStatus?.status === "verified";
+  const isAvailable = offerStatus?.status === "available";
   const isChecking =
     offerStatus?.isChecking || offerStatus?.status === "unknown" || !offerStatus;
   const configBlocked = Boolean(configWarning) && listing.type === "rmz";
-  const tonalliDisabled = !isVerified || configBlocked;
+  const tonalliDisabled = !isAvailable || configBlocked;
   const tokenMismatch =
-    offerStatus?.status === "verified" &&
+    offerStatus?.status === "available" &&
     Boolean(offerStatus.tokenId) &&
     Boolean(RMZ_TOKEN_ID) &&
     offerStatus.tokenId?.toLowerCase() !== RMZ_TOKEN_ID.toLowerCase();
@@ -83,7 +83,7 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
         : offerStatus?.status === "not_found"
           ? "⚠️ Not found"
           : "⚠️ Invalid"
-      : "✅ Verified on-chain";
+      : "✅ Available";
   const badgeClasses = isChecking
     ? "border-white/10 text-white/60 bg-obsidian-950/70"
     : isInvalidOrSpent
@@ -161,7 +161,9 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
       </div>
 
       <div className="mt-3 rounded-xl border border-jade/30 bg-obsidian-950/70 px-3 py-2 text-xs text-jade">
-        <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">Offer ID</span>
+        <span className="block text-[10px] uppercase tracking-[0.2em] text-white/40">
+          Offer ID (txid:vout)
+        </span>
         <span className="mt-1 block break-all font-mono text-[11px] text-white/80">
           {listing.offerId}
         </span>
@@ -229,7 +231,7 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
         ) : null}
         {isInvalidOrSpent ? (
           <p className="mt-3 text-xs text-gold">
-            Offer is invalid, spent, or not found.
+            Offer unavailable: missing, invalid, or explicitly spent.
           </p>
         ) : null}
         {tokenMismatch ? (

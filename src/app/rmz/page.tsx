@@ -12,7 +12,7 @@ export default function RMZPage() {
         <h2 className="text-2xl font-semibold text-white">Ofertas RMZ</h2>
         <p className="mt-3 max-w-2xl text-sm text-white/70">
           Accede a ofertas verificadas para comprar o vender RMZ. Cada tarjeta incluye un
-          Offer ID listo para copiar y abrir en Tonalli.
+          Offer ID (txid:vout) listo para copiar y abrir en Tonalli.
         </p>
       </section>
 

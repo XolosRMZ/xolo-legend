@@ -9,7 +9,12 @@ export type RegistryListing = {
   tokenId?: string;
   priceSats?: string;
   amountAtoms?: string;
-  verification?: "verified" | "invalid" | "spent" | "not_found" | "unknown";
+  verification?:
+    | "available"
+    | "spent"
+    | "invalid"
+    | "not_found"
+    | "unknown";
 };
 
 const REGISTRY_KEY = "xololegend_registry_v1";

@@ -1,4 +1,6 @@
-import { CHRONIK_URL } from "@/lib/constants";
+import type { BlockchainInfo, ScriptUtxos, TokenInfo, Tx } from "chronik-client";
+
+import { getChronikClient } from "@/lib/chronikClient";
 
 export type ChronikTokenInfo = {
   tokenId?: string;
@@ -14,72 +16,53 @@ export type ChronikTokenInfo = {
   };
 };
 
-export type ChronikTx = Record<string, unknown>;
-export type ChronikUtxo = Record<string, unknown>;
-export type ChronikScriptUtxos = {
-  outputScript?: string;
-  utxos: ChronikUtxo[];
-};
+export type ChronikTx = Tx;
+export type ChronikUtxo = ScriptUtxos["utxos"][number];
+export type ChronikScriptUtxos = ScriptUtxos;
+export type ChronikBlockchainInfo = BlockchainInfo;
 
-export type ChronikBlockchainInfo = {
-  tipHeight: number;
-  tipHash: string;
-};
-
-function joinChronikUrl(path: string) {
-  const base = CHRONIK_URL.replace(/\/+$/, "");
-  const trimmed = path.replace(/^\/+/, "");
-  return `${base}/${trimmed}`;
-}
-
-export async function chronikFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(joinChronikUrl(path), {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.headers ?? {})
-    }
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Chronik request failed (${response.status}): ${text}`);
-  }
-
-  return (await response.json()) as T;
-}
-
-export function getChronikUrl(path = "") {
-  return joinChronikUrl(path);
+function toChronikTokenInfo(info: TokenInfo): ChronikTokenInfo {
+  return {
+    tokenId: info.tokenId,
+    tokenType: info.tokenType?.number ?? info.tokenType?.type,
+    tokenTicker: info.genesisInfo?.tokenTicker,
+    tokenName: info.genesisInfo?.tokenName,
+    url: info.genesisInfo?.url,
+    decimals: info.genesisInfo?.decimals,
+    tokenDocumentHash: info.genesisInfo?.hash
+  };
 }
 
 export async function fetchToken(tokenId: string): Promise<ChronikTokenInfo> {
   if (!tokenId) {
     throw new Error("Missing tokenId for Chronik token lookup.");
   }
-  return chronikFetch<ChronikTokenInfo>(`token/${tokenId}`);
+  const chronik = await getChronikClient();
+  const info = await chronik.token(tokenId);
+  return toChronikTokenInfo(info);
 }
 
 export async function fetchTx(txId: string): Promise<ChronikTx> {
   if (!txId) {
     throw new Error("Missing txId for Chronik transaction lookup.");
   }
-  return chronikFetch<ChronikTx>(`tx/${txId}`);
+  const chronik = await getChronikClient();
+  return chronik.tx(txId);
 }
 
 export async function fetchUtxosByScript(params: {
   type: string;
   payload: string;
-}): Promise<ChronikScriptUtxos | ChronikUtxo[]> {
+}): Promise<ChronikScriptUtxos> {
   const { type, payload } = params;
   if (!type || !payload) {
     throw new Error("Missing script type or payload for Chronik UTXO lookup.");
   }
-  return chronikFetch<ChronikScriptUtxos | ChronikUtxo[]>(
-    `script/${type}/${payload}/utxos`
-  );
+  const chronik = await getChronikClient();
+  return chronik.script(type, payload).utxos();
 }
 
 export async function fetchBlockchainInfo(): Promise<ChronikBlockchainInfo> {
-  return chronikFetch<ChronikBlockchainInfo>("blockchain-info");
+  const chronik = await getChronikClient();
+  return chronik.blockchainInfo();
 }

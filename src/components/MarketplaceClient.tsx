@@ -111,7 +111,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   const isListingVerified = useCallback(
     (listing: Listing) => {
       const status = offerStatusCache[listing.offerId];
-      return status?.status === "verified";
+      return status?.status === "available";
     },
     [offerStatusCache]
   );
@@ -205,7 +205,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
       </div>
       {!showDemo && !hasVerifiedListings ? (
         <div className="rounded-2xl border border-white/10 bg-obsidian-900/50 p-6 text-center text-white/60">
-          No hay ofertas verificadas aún.
+          No hay ofertas disponibles aún.
           <div className="mt-4">
             <a
               href="/create"

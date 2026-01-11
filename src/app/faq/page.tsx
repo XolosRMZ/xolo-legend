@@ -2,7 +2,7 @@ const faqs = [
   {
     question: "¿Qué es un Offer ID?",
     answer:
-      "Es el identificador único de cada oferta. Lo copias debajo de la imagen y lo pegas en Tonalli."
+      "Es el identificador único de cada oferta en formato txid:vout. Lo copias debajo de la imagen y lo pegas en Tonalli."
   },
   {
     question: "¿Cómo confirmo mi compra?",

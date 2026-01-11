@@ -20,9 +20,9 @@ import { RMZ_STATE_TOKEN_ID, RMZ_TOKEN_ID } from "@/lib/constants";
 import { useWallet } from "@/lib/wallet";
 
 export type OfferStatusType =
-  | "verified"
-  | "invalid"
+  | "available"
   | "spent"
+  | "invalid"
   | "not_found"
   | "unknown";
 
@@ -213,60 +213,31 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
         tokenId: prev[trimmed]?.tokenId,
         amountAtoms: prev[trimmed]?.amountAtoms,
         isPartial: prev[trimmed]?.isPartial,
+        error: prev[trimmed]?.error,
         isChecking: true,
         updatedAt: Date.now()
       }
     }));
     try {
       const result = await loadOfferById(trimmed);
-      if (result.ok && "parsed" in result && result.parsed === false) {
-        const next: OfferStatus = {
-          status: "unknown",
-          offerTxId: trimmed,
-          priceSats: cacheRef.current[trimmed]?.priceSats,
-          tokenId: cacheRef.current[trimmed]?.tokenId,
-          amountAtoms: cacheRef.current[trimmed]?.amountAtoms,
-          isPartial: cacheRef.current[trimmed]?.isPartial,
-          isChecking: true,
-          updatedAt: Date.now()
-        };
-        setOfferStatusCache((prev) => ({ ...prev, [trimmed]: next }));
-        if (typeof window !== "undefined") {
-          window.setTimeout(() => {
-            verifyOffer(trimmed);
-          }, 0);
-        }
-        return next;
-      }
-      if (result.ok && "parsed" in result && result.parsed) {
-        const next: OfferStatus = {
-          status: "verified",
-          offerTxId: trimmed,
-          priceSats: result.offer.priceSats,
-          tokenId: result.offer.tokenId,
-          amountAtoms: result.offer.amountAtoms,
-          isPartial: result.offer.isPartial,
-          updatedAt: Date.now()
-        };
-        setOfferStatusCache((prev) => ({ ...prev, [trimmed]: next }));
-        return next;
-      }
+      const errorMessage = result.ok
+        ? undefined
+        : result.status === "spent"
+          ? "spentBy" in result && result.spentBy
+            ? `Spent by ${result.spentBy}`
+            : "Spent"
+          : result.status === "not_found"
+            ? `Tx not found: ${result.txid}`
+            : result.error;
       const next: OfferStatus = {
-        status:
-          result.status === "spent"
-            ? "spent"
-            : result.status === "not_found"
-              ? "not_found"
-              : result.status === "invalid"
-                ? "invalid"
-                : "unknown",
+        status: result.status,
         offerTxId: trimmed,
-        priceSats: result.offer?.priceSats,
-        tokenId: result.offer?.tokenId,
-        amountAtoms: result.offer?.amountAtoms,
-        isPartial: result.offer?.isPartial,
+        priceSats: cacheRef.current[trimmed]?.priceSats,
+        tokenId: cacheRef.current[trimmed]?.tokenId,
+        amountAtoms: cacheRef.current[trimmed]?.amountAtoms,
+        isPartial: cacheRef.current[trimmed]?.isPartial,
         updatedAt: Date.now(),
-        error: result.error
+        error: errorMessage
       };
       setOfferStatusCache((prev) => ({ ...prev, [trimmed]: next }));
       return next;

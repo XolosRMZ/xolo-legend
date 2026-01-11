@@ -33,7 +33,7 @@ export default function HowToBuyPage() {
           {
             step: "01",
             title: "Copy Offer ID",
-            description: "Localiza el Offer ID debajo de la imagen y cópialo."
+            description: "Localiza el Offer ID (txid:vout) debajo de la imagen y cópialo."
           },
           {
             step: "02",
@@ -43,7 +43,7 @@ export default function HowToBuyPage() {
           {
             step: "03",
             title: "Paste & confirm",
-            description: "Pega el Offer ID y confirma la transacción."
+            description: "Pega el Offer ID (txid:vout) y confirma la transacción."
           }
         ].map((item) => (
           <div
@@ -70,7 +70,7 @@ export default function HowToBuyPage() {
                   setError("");
                 }
               }}
-              placeholder="Ingresa Offer ID para compra rápida"
+              placeholder="Ingresa Offer ID (txid:vout) para compra rápida"
               className="w-full rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-sm text-white/80 placeholder:text-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
             />
             {error ? <p className="mt-2 text-xs text-gold/80">{error}</p> : null}

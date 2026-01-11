@@ -31,7 +31,7 @@ export function FilterBar({
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Buscar por nombre, colección u Offer ID"
+          placeholder="Buscar por nombre, colección u Offer ID (txid:vout)"
           aria-label="Buscar"
           className="w-full flex-1 rounded-xl border border-white/10 bg-obsidian-900/80 px-4 py-3 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
         />

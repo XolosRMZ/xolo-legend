@@ -88,7 +88,7 @@ export default function TxPage() {
           </h1>
           <p className="mt-2 text-sm text-white/70">
             {offerId
-              ? `Offer ID: ${offerId}`
+              ? `Offer ID (txid:vout): ${offerId}`
               : "Paste a txid to verify your purchase."}
           </p>
         </div>

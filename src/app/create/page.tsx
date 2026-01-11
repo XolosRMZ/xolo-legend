@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useOnChain, type OfferStatus } from "@/state/onchain";
 import { addListing, isRegistryPersistent, type RegistryListing } from "@/lib/registry";
-import { RMZ_TOKEN_ID, TONALLI_WEB_URL } from "@/lib/constants";
+import { CHRONIK_URL, RMZ_TOKEN_ID, TONALLI_WEB_URL } from "@/lib/constants";
+import { isTxidOnly } from "@/lib/offerId";
 
 type Step = 1 | 2 | 3;
 
@@ -52,15 +53,15 @@ export default function CreateListingPage() {
     imageMode === "upload" ? imageDataUrl : imageUrl;
 
   const canAdvanceFromDetails = title.trim().length > 0;
-  const isVerified = verification?.status === "verified";
-  const canPublish = isVerified;
+  const isAvailable = verification?.status === "available";
+  const canPublish = isAvailable;
 
   const tokenMismatch = useMemo(() => {
-    if (!isVerified || !verification?.tokenId || !RMZ_TOKEN_ID) {
+    if (!isAvailable || !verification?.tokenId || !RMZ_TOKEN_ID) {
       return false;
     }
     return verification.tokenId.toLowerCase() !== RMZ_TOKEN_ID.toLowerCase();
-  }, [isVerified, verification?.tokenId]);
+  }, [isAvailable, verification?.tokenId]);
 
   const verificationLabel = useMemo(() => {
     if (!offerTxId.trim()) {
@@ -72,20 +73,48 @@ export default function CreateListingPage() {
     if (!verification) {
       return "Ready to verify.";
     }
-    if (verification.status === "verified") {
-      return "✅ Verified on-chain";
+    if (verification.status === "available") {
+      return "✅ Available";
     }
     if (verification.status === "spent") {
-      return "⚠️ Spent offer";
+      if (verification.error) {
+        return `⚠️ ${verification.error}`;
+      }
+      return "⚠️ Spent";
     }
     if (verification.status === "not_found") {
-      return "⚠️ Offer not found";
+      if (verification.error) {
+        return `⚠️ ${verification.error}`;
+      }
+      return "⚠️ Not found";
     }
     if (verification.status === "invalid") {
-      return "⚠️ Invalid offer";
+      if (verification.error) {
+        return `⚠️ ${verification.error}`;
+      }
+      return "⚠️ Invalid";
     }
     return "⚠️ Unknown";
   }, [isVerifying, offerTxId, verification]);
+
+  const statusSummary = useMemo(() => {
+    if (!verification) {
+      return "Unknown";
+    }
+    if (verification.status === "available") {
+      return "Available";
+    }
+    if (verification.status === "spent") {
+      return "Spent";
+    }
+    if (verification.status === "not_found") {
+      return "Not found";
+    }
+    if (verification.status === "invalid") {
+      return "Invalid";
+    }
+    return "Unknown";
+  }, [verification]);
 
   const handleVerify = async () => {
     const trimmed = offerTxId.trim();
@@ -145,11 +174,11 @@ export default function CreateListingPage() {
           Creator Flow
         </p>
         <h1 className="mt-4 text-3xl font-semibold text-white md:text-4xl">
-          Create a verified listing.
+          Create an available listing.
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-white/70">
-          Add listing details, verify an Agora Offer ID on-chain, and publish it to
-          the marketplace instantly.
+          Add listing details, verify an Offer ID (txid:vout) on-chain, and
+          publish it to the marketplace instantly.
         </p>
         {!isPersistent ? (
           <p className="mt-4 text-xs text-gold">
@@ -251,16 +280,23 @@ export default function CreateListingPage() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Step 2 · Offer ID</h2>
-              <span className="text-xs text-white/50">Required: txid</span>
+              <h2 className="text-lg font-semibold text-white">
+                Step 2 · Offer ID (txid:vout)
+              </h2>
+              <span className="text-xs text-white/50">Required: txid:vout</span>
             </div>
             <div className="mt-4 grid gap-4">
               <input
                 value={offerTxId}
                 onChange={(event) => setOfferTxId(event.target.value)}
-                placeholder="Paste Agora Offer ID"
+                placeholder="Paste Offer ID like <txid>:<vout>"
                 className="w-full rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
               />
+              {isTxidOnly(offerTxId) ? (
+                <p className="text-xs text-gold">
+                  This looks like a txid. Offer IDs require txid:vout (outpoint).
+                </p>
+              ) : null}
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleVerify}
@@ -274,11 +310,15 @@ export default function CreateListingPage() {
               {configWarning ? (
                 <p className="text-xs text-gold">On-chain config missing.</p>
               ) : null}
-              {verification?.status === "verified" ? (
-                <div className="rounded-xl border border-jade/30 bg-obsidian-950/70 px-4 py-3 text-xs text-white/70">
-                  <div>Price: {verification.priceSats?.toLocaleString() ?? "—"} sats</div>
-                  <div>Amount: {verification.amountAtoms ?? "—"} atoms</div>
-                  <div>Token ID: {verification.tokenId ?? "—"}</div>
+              {process.env.NODE_ENV !== "production" ? (
+                <p className="text-xs text-white/50">
+                  Chronik: {CHRONIK_URL} (protobuf via chronik-client)
+                </p>
+              ) : null}
+              {verification?.status === "available" ? (
+                <div className="rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-xs text-gold">
+                  On-chain terms unavailable. Confirm price, amount, and token details
+                  manually before publishing.
                 </div>
               ) : null}
               {tokenMismatch ? (
@@ -295,7 +335,7 @@ export default function CreateListingPage() {
                 </button>
                 <button
                   onClick={() => setStep(3)}
-                  disabled={!isVerified}
+                  disabled={!isAvailable}
                   className="rounded-full border border-jade/40 bg-jade/10 px-5 py-2 text-xs text-jade shadow-glow transition hover:bg-jade/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/40"
                 >
                   Continue to publish
@@ -311,12 +351,12 @@ export default function CreateListingPage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Step 3 · Publish listing</h2>
-              <span className="text-xs text-white/50">Verified only</span>
+              <span className="text-xs text-white/50">Available only</span>
             </div>
             <div className="mt-4 grid gap-4">
               <div className="rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-xs text-white/70">
                 <p>Offer ID: {offerTxId.trim() || "—"}</p>
-                <p>Status: {verification?.status ?? "unknown"}</p>
+                <p>Status: {statusSummary}</p>
                 <p>Tonalli: {TONALLI_WEB_URL}</p>
               </div>
               <div className="flex items-center justify-between">
@@ -373,9 +413,9 @@ export default function CreateListingPage() {
             <ul className="mt-3 space-y-2">
               <li>Use a clear title for easier discovery.</li>
               <li>Verify the Offer ID before publishing.</li>
-              <li>Listings show only when verified by default.</li>
-            </ul>
-          </div>
+              <li>Listings show when the outpoint exists unless explicitly spent.</li>
+              </ul>
+            </div>
         </aside>
       </div>
     </div>
