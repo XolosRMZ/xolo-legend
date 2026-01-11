@@ -1,8 +1,14 @@
 import { MarketplaceClient } from "@/components/MarketplaceClient";
+import { RmzOnChainSection } from "@/components/RmzOnChainSection";
+import { CollectionCard } from "@/components/CollectionCard";
 import listings from "@/data/listings.json";
+import collections from "@/data/collections.json";
 import { TONALLI_WEB_URL } from "@/lib/links";
+import type { Listing } from "@/lib/types";
 
 export default function MarketplacePage() {
+  const typedListings = listings as Listing[];
+
   return (
     <div className="space-y-10">
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-obsidian-900/60 px-6 py-10 shadow-glow">
@@ -33,7 +39,30 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      <MarketplaceClient listings={listings} />
+      <RmzOnChainSection />
+
+      <MarketplaceClient listings={typedListings} />
+
+      <section className="space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-white/50">
+              Colecciones
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">
+              Explora las leyendas
+            </h2>
+          </div>
+          <p className="max-w-md text-sm text-white/70">
+            Filtra por colección o abre la vista filtrada en el marketplace.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {collections.map((collection) => (
+            <CollectionCard key={collection.id} collection={collection} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

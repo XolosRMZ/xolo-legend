@@ -1,4 +1,5 @@
-export const TONALLI_WEB_URL = "https://app.tonalli.cash/";
+export const TONALLI_WEB_URL =
+  process.env.NEXT_PUBLIC_TONALLI_URL ?? "https://app.tonalli.cash";
 export const CONNECT_RETURN_PATH = "/connected";
 export const CHRONIK_URL =
   process.env.NEXT_PUBLIC_CHRONIK_URL ?? "https://chronik.xolosarmy.xyz";

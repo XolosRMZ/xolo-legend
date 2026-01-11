@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useOnChain, type OfferStatus } from "@/state/onchain";
 import { addListing, isRegistryPersistent, type RegistryListing } from "@/lib/registry";
 import { CHRONIK_URL, RMZ_TOKEN_ID, TONALLI_WEB_URL } from "@/lib/constants";
-import { isTxidOnly } from "@/lib/offerId";
+import { isTxidOnly, parseOfferId } from "@/lib/offerId";
+import { buildTonalliDeepLink } from "@/lib/tonalliDeepLink";
+import { parseOfferReturnParams } from "@/lib/offerReturn";
 
 type Step = 1 | 2 | 3;
 
@@ -18,6 +21,7 @@ function buildId() {
 
 export default function CreateListingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { offerStatusCache, verifyOffer, configWarning } = useOnChain();
   const [step, setStep] = useState<Step>(1);
 
@@ -32,9 +36,38 @@ export default function CreateListingPage() {
   const [verification, setVerification] = useState<OfferStatus | undefined>();
   const [isVerifying, setIsVerifying] = useState(false);
   const [isPersistent, setIsPersistent] = useState(true);
+  const [tonalliLink, setTonalliLink] = useState<string | null>(null);
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const handledReturnRef = useRef(false);
+  const lastVerifiedRef = useRef<string | null>(null);
 
   useEffect(() => {
     setIsPersistent(isRegistryPersistent());
+  }, []);
+
+  useEffect(() => {
+    if (handledReturnRef.current) {
+      return;
+    }
+    handledReturnRef.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    const result = parseOfferReturnParams(params);
+    if (!result.consumed) {
+      return;
+    }
+    if (result.offerId) {
+      setOfferTxId(result.offerId);
+      setStep(2);
+    }
+    if (result.error) {
+      setReturnError(result.error);
+      setStep(2);
+    }
+    router.replace("/create");
+  }, [router, searchParams]);
+
+  useEffect(() => {
+    setTonalliLink(buildTonalliDeepLink());
   }, []);
 
   useEffect(() => {
@@ -49,12 +82,43 @@ export default function CreateListingPage() {
     }
   }, [offerTxId, offerStatusCache]);
 
+  useEffect(() => {
+    if (returnError) {
+      setReturnError(null);
+    }
+  }, [offerTxId, returnError]);
+
+  useEffect(() => {
+    const trimmed = offerTxId.trim();
+    if (!trimmed) {
+      lastVerifiedRef.current = null;
+      return;
+    }
+    const parsed = parseOfferId(trimmed);
+    if (!parsed || parsed.raw === lastVerifiedRef.current) {
+      return;
+    }
+    lastVerifiedRef.current = parsed.raw;
+    setIsVerifying(true);
+    verifyOffer(parsed.raw)
+      .then((result) => {
+        if (result) {
+          setVerification(result);
+        }
+      })
+      .finally(() => {
+        setIsVerifying(false);
+      });
+  }, [offerTxId, verifyOffer]);
+
   const previewImage =
     imageMode === "upload" ? imageDataUrl : imageUrl;
 
   const canAdvanceFromDetails = title.trim().length > 0;
   const isAvailable = verification?.status === "available";
   const canPublish = isAvailable;
+  const termsStatus = verification?.termsStatus;
+  const onChainTerms = termsStatus === "onchain" ? verification?.terms : undefined;
 
   const tokenMismatch = useMemo(() => {
     if (!isAvailable || !verification?.tokenId || !RMZ_TOKEN_ID) {
@@ -116,6 +180,8 @@ export default function CreateListingPage() {
     return "Unknown";
   }, [verification]);
 
+  const showTonalliCta = !offerTxId.trim() || !isAvailable;
+
   const handleVerify = async () => {
     const trimmed = offerTxId.trim();
     if (!trimmed) {
@@ -147,6 +213,7 @@ export default function CreateListingPage() {
       return;
     }
     const trimmed = offerTxId.trim();
+    const terms = verification?.terms;
     const listing: RegistryListing = {
       id: buildId(),
       createdAt: Date.now(),
@@ -155,12 +222,14 @@ export default function CreateListingPage() {
       collection: collection.trim() || undefined,
       imageUrl: previewImage || undefined,
       offerTxId: trimmed,
-      tokenId: verification?.tokenId,
-      priceSats:
-        verification?.priceSats !== undefined
+      tokenId: terms?.tokenId ?? verification?.tokenId,
+      priceSats: terms
+        ? String(terms.kind === "token" ? terms.totalSats : terms.priceSats)
+        : verification?.priceSats !== undefined
           ? String(verification.priceSats)
           : undefined,
-      amountAtoms: verification?.amountAtoms,
+      amountAtoms:
+        terms?.kind === "token" ? terms.sellAtoms.toString() : verification?.amountAtoms,
       verification: verification?.status ?? "unknown"
     };
     addListing(listing);
@@ -292,6 +361,9 @@ export default function CreateListingPage() {
                 placeholder="Paste Offer ID like <txid>:<vout>"
                 className="w-full rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-jade"
               />
+              {returnError ? (
+                <p className="text-xs text-gold">{returnError}</p>
+              ) : null}
               {isTxidOnly(offerTxId) ? (
                 <p className="text-xs text-gold">
                   This looks like a txid. Offer IDs require txid:vout (outpoint).
@@ -307,6 +379,21 @@ export default function CreateListingPage() {
                 </button>
                 <span className="text-xs text-white/60">{verificationLabel}</span>
               </div>
+              {showTonalliCta ? (
+                <div className="rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3">
+                  <a
+                    href={tonalliLink ?? TONALLI_WEB_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center rounded-full border border-jade/40 bg-jade/10 px-4 py-2 text-xs text-jade shadow-glow transition hover:bg-jade/20"
+                  >
+                    Create Offer in Tonalli
+                  </a>
+                  <p className="mt-2 text-xs text-white/60">
+                    You’ll return here with an Offer ID (txid:vout).
+                  </p>
+                </div>
+              ) : null}
               {configWarning ? (
                 <p className="text-xs text-gold">On-chain config missing.</p>
               ) : null}
@@ -316,10 +403,30 @@ export default function CreateListingPage() {
                 </p>
               ) : null}
               {verification?.status === "available" ? (
-                <div className="rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-xs text-gold">
-                  On-chain terms unavailable. Confirm price, amount, and token details
-                  manually before publishing.
-                </div>
+                onChainTerms ? (
+                  <div className="rounded-xl border border-jade/40 bg-obsidian-950/80 px-4 py-3 text-xs text-white/70">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                      On-chain terms
+                    </p>
+                    {onChainTerms.kind === "token" ? (
+                      <div className="mt-2 space-y-1">
+                        <p>Token: {onChainTerms.tokenId}</p>
+                        <p>Amount: {onChainTerms.tokenAmount}</p>
+                        <p>Rate: {onChainTerms.xecPerToken} XEC / RMZ</p>
+                        <p>Total: {onChainTerms.xecTotal} XEC</p>
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-1">
+                        <p>Token: {onChainTerms.tokenId}</p>
+                        <p>Total: {onChainTerms.xecTotal} XEC</p>
+                      </div>
+                    )}
+                  </div>
+                ) : termsStatus === "manual" ? (
+                  <div className="rounded-xl border border-white/10 bg-obsidian-950/70 px-4 py-3 text-xs text-white/70">
+                    On-chain pricing not embedded. Seller-confirmed terms.
+                  </div>
+                ) : null
               ) : null}
               {tokenMismatch ? (
                 <p className="text-xs text-gold">
@@ -384,10 +491,13 @@ export default function CreateListingPage() {
             <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-obsidian-950/70">
               <div className="aspect-square overflow-hidden border-b border-white/10 bg-obsidian-900/80">
                 {previewImage ? (
-                  <img
+                  <Image
                     src={previewImage}
                     alt="Preview"
-                    className="h-full w-full object-cover"
+                    fill
+                    unoptimized
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 400px"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-white/40">

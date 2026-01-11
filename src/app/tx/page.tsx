@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { fetchBlockchainInfo, fetchTx } from "@/lib/chronik";
+import { fetchBlockchainInfo, fetchTx, type ChronikTx } from "@/lib/chronik";
 
 type TxState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "success"; tx: Record<string, unknown>; confirmations?: number };
+  | { status: "success"; tx: ChronikTx; confirmations?: number };
 
 function readTxidParam(params: URLSearchParams) {
   return params.get("txid")?.trim() ?? "";
@@ -48,7 +48,7 @@ export default function TxPage() {
             ? tipHeight - block.height + 1
             : undefined;
         if (active) {
-          setTxState({ status: "success", tx: tx as Record<string, unknown>, confirmations });
+          setTxState({ status: "success", tx, confirmations });
         }
       } catch (error) {
         if (active) {

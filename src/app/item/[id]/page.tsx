@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
 import listings from "@/data/listings.json";
 import { ListingCard } from "@/components/ListingCard";
+import type { Listing } from "@/lib/types";
 
 interface ItemPageProps {
   params: { id: string };
 }
 
 export default function ItemPage({ params }: ItemPageProps) {
-  const listing = listings.find((item) => item.id === params.id);
+  const typedListings = listings as Listing[];
+  const listing = typedListings.find((item) => item.id === params.id);
 
   if (!listing) {
     notFound();

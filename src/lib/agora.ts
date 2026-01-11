@@ -1,8 +1,8 @@
 import { getReturnUrl, TONALLI_WEB_URL } from "@/lib/constants";
 import { openTonalliOffer } from "@/lib/tonalli";
-import { verifyOfferOutpoint, type OfferStatus } from "@/lib/offers";
+import { verifyOfferOutpoint, type VerifiedOffer } from "@/lib/offers";
 
-export async function loadOfferById(offerId: string): Promise<OfferStatus> {
+export async function loadOfferById(offerId: string): Promise<VerifiedOffer> {
   return verifyOfferOutpoint(offerId);
 }
 

@@ -17,6 +17,7 @@ import { fetchUtxosByScript } from "@/lib/chronik";
 import { fetchRmzTokenInfo, requireRmzTokenId } from "@/lib/rmz";
 import { loadOfferById } from "@/lib/agora";
 import { RMZ_STATE_TOKEN_ID, RMZ_TOKEN_ID } from "@/lib/constants";
+import type { OfferTerms } from "@/lib/offerTerms";
 import { useWallet } from "@/lib/wallet";
 
 export type OfferStatusType =
@@ -33,6 +34,8 @@ export type OfferStatus = {
   tokenId?: string;
   amountAtoms?: string;
   isPartial?: boolean;
+  terms?: OfferTerms;
+  termsStatus?: "onchain" | "manual";
   isChecking?: boolean;
   updatedAt: number;
   error?: string;
@@ -53,7 +56,10 @@ type OnChainState = {
 
 const OnChainContext = createContext<OnChainState | null>(null);
 
-function toHex(bytes: Uint8Array) {
+function toHex(bytes: Uint8Array | string) {
+  if (typeof bytes === "string") {
+    return bytes;
+  }
   return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -74,6 +80,14 @@ function parseBigInt(value: unknown): bigint {
     }
   }
   return 0n;
+}
+
+function toSafeNumber(value: bigint | undefined) {
+  if (typeof value !== "bigint") {
+    return undefined;
+  }
+  const max = BigInt(Number.MAX_SAFE_INTEGER);
+  return value <= max ? Number(value) : undefined;
 }
 
 function formatAtoms(value: bigint, decimals = 0) {
@@ -213,6 +227,8 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
         tokenId: prev[trimmed]?.tokenId,
         amountAtoms: prev[trimmed]?.amountAtoms,
         isPartial: prev[trimmed]?.isPartial,
+        terms: prev[trimmed]?.terms,
+        termsStatus: prev[trimmed]?.termsStatus,
         error: prev[trimmed]?.error,
         isChecking: true,
         updatedAt: Date.now()
@@ -220,22 +236,41 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
     }));
     try {
       const result = await loadOfferById(trimmed);
-      const errorMessage = result.ok
-        ? undefined
-        : result.status === "spent"
-          ? "spentBy" in result && result.spentBy
-            ? `Spent by ${result.spentBy}`
-            : "Spent"
-          : result.status === "not_found"
-            ? `Tx not found: ${result.txid}`
-            : result.error;
+      const errorMessage =
+        result.availability === "available"
+          ? undefined
+          : result.availability === "spent"
+            ? "spentBy" in result && result.spentBy
+              ? `Spent by ${result.spentBy}`
+              : "Spent"
+            : result.availability === "not_found"
+              ? `Tx not found: ${result.txid}`
+              : result.error;
+      const terms = result.availability === "available" ? result.terms : undefined;
+      const termsStatus =
+        result.availability === "available" ? result.termsStatus : undefined;
+      const tokenId = terms?.tokenId ?? cacheRef.current[trimmed]?.tokenId;
+      const amountAtoms =
+        terms?.kind === "token"
+          ? terms.sellAtoms.toString()
+          : cacheRef.current[trimmed]?.amountAtoms;
+      const priceSats = terms
+        ? toSafeNumber(
+            terms.kind === "token" ? terms.totalSats : terms.priceSats
+          )
+        : cacheRef.current[trimmed]?.priceSats;
+      const isPartial = terms
+        ? terms.kind === "token"
+        : cacheRef.current[trimmed]?.isPartial;
       const next: OfferStatus = {
-        status: result.status,
+        status: result.availability,
         offerTxId: trimmed,
-        priceSats: cacheRef.current[trimmed]?.priceSats,
-        tokenId: cacheRef.current[trimmed]?.tokenId,
-        amountAtoms: cacheRef.current[trimmed]?.amountAtoms,
-        isPartial: cacheRef.current[trimmed]?.isPartial,
+        priceSats,
+        tokenId,
+        amountAtoms,
+        isPartial,
+        terms,
+        termsStatus,
         updatedAt: Date.now(),
         error: errorMessage
       };

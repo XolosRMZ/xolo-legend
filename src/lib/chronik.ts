@@ -1,4 +1,10 @@
-import type { BlockchainInfo, ScriptUtxos, TokenInfo, Tx } from "chronik-client";
+import type {
+  BlockchainInfo,
+  ScriptType,
+  ScriptUtxos,
+  TokenInfo,
+  Tx
+} from "chronik-client";
 
 import { getChronikClient } from "@/lib/chronikClient";
 
@@ -22,9 +28,11 @@ export type ChronikScriptUtxos = ScriptUtxos;
 export type ChronikBlockchainInfo = BlockchainInfo;
 
 function toChronikTokenInfo(info: TokenInfo): ChronikTokenInfo {
+  const tokenType = info.tokenType as { number?: number; type?: string } | undefined;
+
   return {
     tokenId: info.tokenId,
-    tokenType: info.tokenType?.number ?? info.tokenType?.type,
+    tokenType: tokenType?.number ?? tokenType?.type,
     tokenTicker: info.genesisInfo?.tokenTicker,
     tokenName: info.genesisInfo?.tokenName,
     url: info.genesisInfo?.url,
@@ -59,7 +67,7 @@ export async function fetchUtxosByScript(params: {
     throw new Error("Missing script type or payload for Chronik UTXO lookup.");
   }
   const chronik = await getChronikClient();
-  return chronik.script(type, payload).utxos();
+  return chronik.script(type as ScriptType, payload).utxos();
 }
 
 export async function fetchBlockchainInfo(): Promise<ChronikBlockchainInfo> {

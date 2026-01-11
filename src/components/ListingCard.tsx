@@ -42,11 +42,33 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
     Boolean(offerStatus.tokenId) &&
     Boolean(RMZ_TOKEN_ID) &&
     offerStatus.tokenId?.toLowerCase() !== RMZ_TOKEN_ID.toLowerCase();
+  const termsStatus = offerStatus?.termsStatus;
+  const onChainTerms = offerStatus?.terms;
   const isExternalImage = !listing.image.startsWith("/");
+  const hasManualPrice =
+    termsStatus === "manual" &&
+    Number.isFinite(listing.price.amount) &&
+    listing.price.amount > 0;
   const displayPrice =
-    listing.source === "registry" && offerStatus?.priceSats !== undefined
-      ? { amount: offerStatus.priceSats, symbol: "sats" }
-      : listing.price;
+    termsStatus === "manual"
+      ? hasManualPrice
+        ? listing.price
+        : undefined
+      : listing.source === "registry" && offerStatus?.priceSats !== undefined
+        ? { amount: offerStatus.priceSats, symbol: "sats" }
+        : listing.price;
+  const tokenSymbol = listing.type === "rmz" ? "RMZ" : "TOKEN";
+  const priceLabel = onChainTerms
+    ? `${onChainTerms.xecTotal} XEC`
+    : displayPrice
+      ? `${displayPrice.amount.toLocaleString(undefined, {
+          maximumFractionDigits: 2
+        })} ${displayPrice.symbol}`
+      : undefined;
+  const priceDetail =
+    onChainTerms?.kind === "token"
+      ? `${onChainTerms.xecPerToken} XEC / ${tokenSymbol}`
+      : undefined;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(listing.offerId);
@@ -136,11 +158,12 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
 
       <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10">
         {isExternalImage ? (
-          <img
+          <Image
             src={listing.image}
             alt={listing.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
-            loading="lazy"
+            fill
+            className="object-cover transition duration-500 group-hover:scale-[1.02]"
+            sizes="(max-width: 768px) 100vw, 33vw"
           />
         ) : (
           <Image
@@ -171,12 +194,23 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
           <span className={`rounded-full border px-2.5 py-0.5 text-[10px] ${badgeClasses}`}>
             {badgeLabel}
           </span>
-          {offerStatus?.priceSats !== undefined ? (
+          {onChainTerms ? (
+            <>
+              <span className="text-[10px] text-white/60">
+                On-chain: {onChainTerms.xecTotal} XEC
+              </span>
+              {onChainTerms.kind === "token" ? (
+                <span className="text-[10px] text-white/60">
+                  Amount: {onChainTerms.tokenAmount} {tokenSymbol}
+                </span>
+              ) : null}
+            </>
+          ) : offerStatus?.priceSats !== undefined && termsStatus !== "manual" ? (
             <span className="text-[10px] text-white/60">
               On-chain: {offerStatus.priceSats.toLocaleString()} sats
             </span>
           ) : null}
-          {offerStatus?.amountAtoms ? (
+          {!onChainTerms && offerStatus?.amountAtoms && termsStatus !== "manual" ? (
             <span className="text-[10px] text-white/60">
               Amount: {offerStatus.amountAtoms} atoms
             </span>
@@ -192,15 +226,20 @@ export function ListingCard({ listing, isHighlighted, onRemove }: ListingCardPro
         >
           {listing.description}
         </p>
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-sm text-white/50">Precio</span>
-          <span className="text-base font-semibold text-gold">
-            {displayPrice.amount.toLocaleString(undefined, {
-              maximumFractionDigits: 2
-            })}{" "}
-            {displayPrice.symbol}
-          </span>
-        </div>
+        {priceLabel ? (
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white/50">Precio</span>
+              <span className="text-base font-semibold text-gold">{priceLabel}</span>
+            </div>
+            {priceDetail ? (
+              <p className="mt-1 text-xs text-white/60">{priceDetail}</p>
+            ) : null}
+            {termsStatus === "manual" && hasManualPrice ? (
+              <p className="mt-1 text-xs text-white/50">Seller-declared price</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button

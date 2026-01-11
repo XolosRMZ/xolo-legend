@@ -11,7 +11,7 @@ export async function getChronikClient(): Promise<ChronikClient> {
   if (!chronikPromise) {
     chronikPromise = (async () => {
       const { ChronikClient } = await import("chronik-client");
-      return new ChronikClient(CHRONIK_URL);
+      return new ChronikClient([CHRONIK_URL]);
     })();
   }
   return chronikPromise;

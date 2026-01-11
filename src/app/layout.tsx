@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { ToastProvider } from "@/components/ToastProvider";
 import { FavoritesProvider } from "@/lib/storage";
+import { FixedNewListingButton } from "@/components/FixedNewListingButton";
 import Providers from "./providers";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-10">
                 {children}
               </main>
+              <FixedNewListingButton />
             </Providers>
           </FavoritesProvider>
         </ToastProvider>
