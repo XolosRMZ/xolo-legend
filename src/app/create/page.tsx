@@ -489,7 +489,7 @@ export default function CreateListingPage() {
           <div className="rounded-2xl border border-white/10 bg-obsidian-900/60 p-6">
             <h3 className="text-base font-semibold text-white">Live preview</h3>
             <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-obsidian-950/70">
-              <div className="aspect-square overflow-hidden border-b border-white/10 bg-obsidian-900/80">
+              <div className="relative aspect-square overflow-hidden border-b border-white/10 bg-obsidian-900/80">
                 {previewImage ? (
                   <Image
                     src={previewImage}
