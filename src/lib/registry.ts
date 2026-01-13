@@ -11,7 +11,8 @@ export type RegistryListing = {
   description?: string;
   collection?: string;
   imageUrl?: string;
-  offerTxId: string;
+  offerTxId?: string;
+  offerId?: string;
   tokenId?: string;
   priceSats?: string;
   amountAtoms?: string;
@@ -34,18 +35,12 @@ export async function loadRegistry(): Promise<RegistryListing[]> {
     if (!response.ok) throw new Error("Error en servidor");
     const data = await response.json();
 
-    if (!Array.isArray(data)) {
-      return [];
-    }
-
-    // Normalizamos los campos para que el frontend siempre lea 'offerTxId'
+    // IMPORTANTE: Transformamos el objeto para que el Frontend encuentre 'offerId'
     return data.map((item: any) => ({
       ...item,
-      offerTxId: item.offerTxId || item.offertxid || "",
-      tokenId: item.tokenId || item.tokenid || "",
-      priceSats: item.priceSats || item.pricesats || "",
-      amountAtoms: item.amountAtoms || item.amountatoms || "",
-      verification: item.verification || "unknown"
+      // Normalizamos nombres de campos para el componente ListingCard
+      offerId: item.offerTxId || item.offertxid || "",
+      id: item.id || item.ID || ""
     }));
   } catch (error) {
     console.error("Error cargando registro:", error);

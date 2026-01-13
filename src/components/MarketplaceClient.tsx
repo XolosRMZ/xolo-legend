@@ -65,6 +65,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
         Boolean(RMZ_TOKEN_ID) &&
         tokenId === RMZ_TOKEN_ID.toLowerCase();
       const priceAmount = listing.priceSats ? Number(listing.priceSats) : 0;
+      const offerId = listing.offerId || listing.offerTxId || "";
       const whatsappText = encodeURIComponent(
         `Estoy interesado en ${listing.title}`
       );
@@ -76,9 +77,9 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
         description: listing.description || "User listing",
         image: listing.imageUrl || "/placeholders/nft-1.svg",
         price: { amount: Number.isFinite(priceAmount) ? priceAmount : 0, symbol: "sats" },
-        offerId: listing.offerTxId,
+        offerId,
         status: "available",
-        tonalliDeepLink: `tonalli://offer/${listing.offerTxId}`,
+        tonalliDeepLink: `tonalli://offer/${offerId}`,
         tonalliFallbackUrl: TONALLI_WEB_URL,
         whatsappUrl: `https://wa.me/?text=${whatsappText}`,
         source: "registry"
