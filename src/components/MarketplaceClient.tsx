@@ -41,7 +41,9 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   }, [initialCollection]);
 
   useEffect(() => {
-    setRegistryListings(loadRegistry());
+    loadRegistry().then((data) => {
+      setRegistryListings(data);
+    });
   }, []);
 
   const initialTabRef = useRef(true);
