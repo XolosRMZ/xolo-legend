@@ -31,11 +31,24 @@ export function isRegistryPersistent() {
 export async function loadRegistry(): Promise<RegistryListing[]> {
   try {
     const response = await fetch(API_URL);
-    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+    if (!response.ok) throw new Error("Error en servidor");
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    // Normalizamos los campos para que el frontend siempre lea 'offerTxId'
+    return data.map((item: any) => ({
+      ...item,
+      offerTxId: item.offerTxId || item.offertxid || "",
+      tokenId: item.tokenId || item.tokenid || "",
+      priceSats: item.priceSats || item.pricesats || "",
+      amountAtoms: item.amountAtoms || item.amountatoms || "",
+      verification: item.verification || "unknown"
+    }));
   } catch (error) {
-    console.error("Error cargando el registro global:", error);
+    console.error("Error cargando registro:", error);
     return [];
   }
 }
