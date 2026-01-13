@@ -236,7 +236,9 @@ export default function CreateListingPage() {
       await addListing(listing);
       router.push(`/?highlight=${listing.id}`);
     } catch (err) {
-      alert("Error al publicar en el servidor global.");
+      alert(
+        "No se pudo conectar con el servidor global de Hostinger. Intenta de nuevo."
+      );
     }
   };
 

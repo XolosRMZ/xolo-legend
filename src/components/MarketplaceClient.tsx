@@ -41,8 +41,9 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   }, [initialCollection]);
 
   useEffect(() => {
-    loadRegistry().then((data) => {
-      setRegistryListings(data);
+    // Llamada asíncrona al registro global del VPS
+    loadRegistry().then((globalListings) => {
+      setRegistryListings(globalListings);
     });
   }, []);
 
