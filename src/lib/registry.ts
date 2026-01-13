@@ -1,3 +1,9 @@
+// src/lib/registry.ts
+
+// Esta línea lee la variable que configuraste en Vercel
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://api.xololegend.xyz/listings";
+
 export type RegistryListing = {
   id: string;
   createdAt: number;
@@ -12,22 +18,20 @@ export type RegistryListing = {
   verification?: "available" | "spent" | "invalid" | "not_found" | "unknown";
 };
 
-// Endpoint de tu servidor en Hostinger
-const API_URL = "http://72.62.161.240:3001/listings";
-
+/**
+ * Indica que el sistema es global
+ */
 export function isRegistryPersistent() {
-  return true; // Confirmamos que los datos ahora persisten globalmente
+  return true;
 }
 
 /**
- * Carga los listados desde la base de datos del VPS.
+ * Carga los listados globales
  */
 export async function loadRegistry(): Promise<RegistryListing[]> {
   try {
     const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error("Error de red al cargar el registro global.");
-    }
+    if (!response.ok) throw new Error("Error en la respuesta del servidor");
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   } catch (error) {
@@ -37,7 +41,7 @@ export async function loadRegistry(): Promise<RegistryListing[]> {
 }
 
 /**
- * Envía un nuevo listado al VPS para que sea visible en todo el mundo.
+ * Publica un listado al VPS de Hostinger
  */
 export async function addListing(listing: RegistryListing): Promise<void> {
   try {
@@ -46,12 +50,9 @@ export async function addListing(listing: RegistryListing): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(listing),
     });
-    if (!response.ok) {
-      throw new Error("Error al guardar en el servidor global.");
-    }
-    console.log("Listado publicado exitosamente en el servidor.");
+    if (!response.ok) throw new Error("Error al guardar en el servidor");
   } catch (error) {
-    console.error("Error al publicar listado global:", error);
+    console.error("Error de red al publicar:", error);
     throw error;
   }
 }
