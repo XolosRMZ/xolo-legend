@@ -208,7 +208,7 @@ export default function CreateListingPage() {
     reader.readAsDataURL(file);
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!canPublish) {
       return;
     }
@@ -232,8 +232,12 @@ export default function CreateListingPage() {
         terms?.kind === "token" ? terms.sellAtoms.toString() : verification?.amountAtoms,
       verification: verification?.status ?? "unknown"
     };
-    addListing(listing);
-    router.push(`/?highlight=${listing.id}`);
+    try {
+      await addListing(listing);
+      router.push(`/?highlight=${listing.id}`);
+    } catch (err) {
+      alert("Error al publicar en el servidor global.");
+    }
   };
 
   return (

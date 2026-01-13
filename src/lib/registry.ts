@@ -17,91 +17,49 @@ export type RegistryListing = {
     | "unknown";
 };
 
-const REGISTRY_KEY = "xololegend_registry_v1";
-let memoryCache: RegistryListing[] | null = null;
-let storageAvailable: boolean | null = null;
-
-function isClient() {
-  return typeof window !== "undefined";
-}
-
-function canUseStorage() {
-  if (!isClient()) {
-    return false;
-  }
-  if (storageAvailable !== null) {
-    return storageAvailable;
-  }
-  try {
-    const testKey = "__xolo_registry_test__";
-    window.localStorage.setItem(testKey, "1");
-    window.localStorage.removeItem(testKey);
-    storageAvailable = true;
-  } catch {
-    storageAvailable = false;
-  }
-  return storageAvailable;
-}
+// URL de tu Backend en el VPS de Hostinger
+const API_URL = "http://72.62.161.240:3001/listings";
 
 export function isRegistryPersistent() {
-  return canUseStorage();
+  return true; // Ahora es globalmente persistente
 }
 
-export function loadRegistry(): RegistryListing[] {
-  if (!isClient()) {
+/**
+ * Carga los listados desde el VPS (Global)
+ */
+export async function loadRegistry(): Promise<RegistryListing[]> {
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error("Error al obtener datos");
+    return await response.json();
+  } catch (error) {
+    console.error("Error cargando el registro global:", error);
     return [];
   }
-  if (memoryCache) {
-    return memoryCache;
-  }
-  if (!canUseStorage()) {
-    memoryCache = [];
-    return memoryCache;
-  }
-  const stored = window.localStorage.getItem(REGISTRY_KEY);
-  if (!stored) {
-    memoryCache = [];
-    return memoryCache;
-  }
+}
+
+/**
+ * Guarda un listado nuevo en el VPS (Global)
+ */
+export async function addListing(listing: RegistryListing): Promise<void> {
   try {
-    const parsed = JSON.parse(stored);
-    memoryCache = Array.isArray(parsed) ? (parsed as RegistryListing[]) : [];
-  } catch {
-    memoryCache = [];
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(listing),
+    });
+    if (!response.ok) throw new Error("Error al guardar listado");
+  } catch (error) {
+    console.error("Error al publicar listado global:", error);
+    throw error;
   }
-  return memoryCache;
 }
 
-export function saveRegistry(list: RegistryListing[]) {
-  if (!isClient()) {
-    return;
-  }
-  memoryCache = list;
-  if (!canUseStorage()) {
-    return;
-  }
-  window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(list));
-}
-
-export function addListing(listing: RegistryListing) {
-  const next = [listing, ...loadRegistry()];
-  saveRegistry(next);
-  return next;
-}
-
-export function removeListing(id: string) {
-  const next = loadRegistry().filter((listing) => listing.id !== id);
-  saveRegistry(next);
-  return next;
-}
-
-export function updateListing(
-  id: string,
-  patch: Partial<RegistryListing>
-) {
-  const next = loadRegistry().map((listing) =>
-    listing.id === id ? { ...listing, ...patch } : listing
-  );
-  saveRegistry(next);
-  return next;
+/**
+ * Nota: La eliminación requiere implementar DELETE en el backend.
+ * Por ahora, devolvemos la lista vacía o local para no romper el tipo.
+ */
+export function removeListing(id: string): RegistryListing[] {
+  console.warn("La eliminación global debe implementarse en el backend.");
+  return [];
 }
