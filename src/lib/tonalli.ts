@@ -103,14 +103,35 @@ type OpenTonalliConnectArgs = {
   returnUrl: string;
 };
 
+export function createNonceHex(byteLength = 16) {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function openTonalliConnect({ returnUrl }: OpenTonalliConnectArgs) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
 
-  const encodedReturnUrl = encodeURIComponent(returnUrl);
-  const deep = `tonalli://connect?returnUrl=${encodedReturnUrl}&app=xololegend`;
-  const fallback = `${TONALLI_WEB_URL}?action=connect&returnUrl=${encodedReturnUrl}`;
+  const params = new URLSearchParams({
+    app: "xololegend",
+    returnUrl,
+    requestId: crypto.randomUUID(),
+    ts: Math.floor(Date.now() / 1000).toString(),
+    origin: window.location.origin,
+    nonce: createNonceHex(),
+    scope: "connect"
+  });
+
+  const deep = `tonalli://connect?${params.toString()}`;
+  const fallbackBase = TONALLI_WEB_URL.endsWith("/")
+    ? TONALLI_WEB_URL.slice(0, -1)
+    : TONALLI_WEB_URL;
+  const fallback = `${fallbackBase}/connect?${params.toString()}`;
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[tonalli] connect deepLink=", deep, "fallback=", fallback);
+  }
 
   let timerId: number | undefined;
 

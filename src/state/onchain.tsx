@@ -18,7 +18,7 @@ import { fetchRmzTokenInfo, requireRmzTokenId } from "@/lib/rmz";
 import { loadOfferById } from "@/lib/agora";
 import { RMZ_STATE_TOKEN_ID, RMZ_TOKEN_ID } from "@/lib/constants";
 import type { OfferTerms } from "@/lib/offerTerms";
-import { useWallet } from "@/lib/wallet";
+import { getActiveAddress, useWallet } from "@/lib/wallet";
 
 export type OfferStatusType =
   | "available"
@@ -42,7 +42,7 @@ export type OfferStatus = {
 };
 
 type OnChainState = {
-  walletAddress?: string;
+  walletAddress: string | null;
   rmzAtoms?: string;
   rmzFormatted?: string;
   rmzTokenInfo?: ChronikTokenInfo | null;
@@ -116,7 +116,7 @@ function normalizeUtxos(payload: unknown): Array<Record<string, unknown>> {
 
 export function OnChainProvider({ children }: { children: ReactNode }) {
   const { session } = useWallet();
-  const walletAddress = session?.address;
+  const walletAddress = getActiveAddress(session);
 
   const [rmzTokenInfo, setRmzTokenInfo] = useState<ChronikTokenInfo | null>(null);
   const [rmzAtoms, setRmzAtoms] = useState<string>();
@@ -305,9 +305,12 @@ export function OnChainProvider({ children }: { children: ReactNode }) {
   }, [refreshRmzInfo]);
 
   useEffect(() => {
-    if (walletAddress) {
-      refreshRmzBalance(walletAddress);
+    if (!walletAddress) {
+      setRmzAtoms(undefined);
+      setRmzFormatted(undefined);
+      return;
     }
+    refreshRmzBalance(walletAddress);
   }, [refreshRmzBalance, walletAddress]);
 
   useEffect(() => {

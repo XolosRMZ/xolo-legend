@@ -4,16 +4,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getReturnUrl } from "@/lib/constants";
 import { openTonalliConnect } from "@/lib/tonalli";
+import { requestAddresses, validateSession } from "@/lib/walletconnect";
 
 type WalletStatus = "disconnected" | "connecting" | "connected";
 
-export type WalletSession = {
+export type TonalliSession = {
+  type: "tonalli";
   wallet: "tonalli";
-  chain: string;
+  chain: "ecash";
+  address: string;
+  pubkey?: string;
+  signature?: string;
+  requestId?: string;
+  nonce?: string;
+  ts?: string;
+  origin?: string;
+  connectedAt?: string;
+};
+
+export type WalletConnectSession = {
+  type: "walletconnect";
+  wallet: "rmzwallet";
+  chain: "ecash:mainnet";
+  topic: string;
+  pairingTopic?: string;
+  peer?: { name?: string; url?: string; icons?: string[] };
   address?: string;
   pubkey?: string;
   connectedAt: string;
 };
+
+export type WalletSession = TonalliSession | WalletConnectSession;
 
 type WalletState = {
   status: WalletStatus;
@@ -28,7 +49,97 @@ const CONNECT_TIMEOUT_MS = 30_000;
 const LEGACY_STATUS_KEY = "xololegend_wallet_status";
 const SESSION_EVENT = "xololegend_wallet_session_updated";
 
-function readWalletSession(): WalletSession | null {
+type WalletRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is WalletRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function normalizeTonalliSession(record: WalletRecord): TonalliSession | null {
+  if (record.wallet !== "tonalli" && record.type !== "tonalli") {
+    return null;
+  }
+  if (typeof record.address !== "string" || !record.address) {
+    return null;
+  }
+  const connectedAt =
+    typeof record.connectedAt === "string" ? record.connectedAt : new Date().toISOString();
+  const session: TonalliSession = {
+    type: "tonalli",
+    wallet: "tonalli",
+    chain: "ecash",
+    address: record.address,
+    connectedAt
+  };
+
+  if (typeof record.pubkey === "string") {
+    session.pubkey = record.pubkey;
+  }
+  if (typeof record.signature === "string") {
+    session.signature = record.signature;
+  }
+  if (typeof record.requestId === "string") {
+    session.requestId = record.requestId;
+  }
+  if (typeof record.nonce === "string") {
+    session.nonce = record.nonce;
+  }
+  if (typeof record.ts === "string") {
+    session.ts = record.ts;
+  }
+  if (typeof record.origin === "string") {
+    session.origin = record.origin;
+  }
+
+  return session;
+}
+
+function normalizeWalletConnectSession(record: WalletRecord): WalletConnectSession | null {
+  if (record.wallet !== "rmzwallet" && record.type !== "walletconnect") {
+    return null;
+  }
+  if (typeof record.topic !== "string" || !record.topic) {
+    return null;
+  }
+  const connectedAt =
+    typeof record.connectedAt === "string" ? record.connectedAt : new Date().toISOString();
+  const session: WalletConnectSession = {
+    type: "walletconnect",
+    wallet: "rmzwallet",
+    chain: "ecash:mainnet",
+    topic: record.topic,
+    connectedAt
+  };
+
+  if (typeof record.address === "string") {
+    session.address = record.address;
+  }
+  if (typeof record.pubkey === "string") {
+    session.pubkey = record.pubkey;
+  }
+  if (typeof record.pairingTopic === "string") {
+    session.pairingTopic = record.pairingTopic;
+  }
+  if (isRecord(record.peer)) {
+    const peer: WalletConnectSession["peer"] = {};
+    if (typeof record.peer.name === "string") {
+      peer.name = record.peer.name;
+    }
+    if (typeof record.peer.url === "string") {
+      peer.url = record.peer.url;
+    }
+    if (Array.isArray(record.peer.icons)) {
+      peer.icons = record.peer.icons.filter((value) => typeof value === "string");
+    }
+    if (peer.name || peer.url || peer.icons?.length) {
+      session.peer = peer;
+    }
+  }
+
+  return session;
+}
+
+export function getStoredSession(): WalletSession | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -37,10 +148,147 @@ function readWalletSession(): WalletSession | null {
     return null;
   }
   try {
-    return JSON.parse(stored) as WalletSession;
+    const parsed = JSON.parse(stored) as unknown;
+    if (!isRecord(parsed)) {
+      return null;
+    }
+    if (parsed.type === "walletconnect") {
+      return normalizeWalletConnectSession(parsed);
+    }
+    if (parsed.type === "tonalli") {
+      return normalizeTonalliSession(parsed);
+    }
+    if (parsed.wallet === "rmzwallet") {
+      return normalizeWalletConnectSession(parsed);
+    }
+    if (parsed.wallet === "tonalli") {
+      return normalizeTonalliSession(parsed);
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+export function getSession(): WalletSession | null {
+  return getStoredSession();
+}
+
+export function getSessionType(
+  session?: WalletSession | null
+): WalletSession["type"] | null {
+  return session?.type ?? null;
+}
+
+export function getActiveAddress(session?: WalletSession | null): string | null {
+  if (!session) {
+    return null;
+  }
+  if (session.type === "tonalli") {
+    return session.address;
+  }
+  if (session.type === "walletconnect") {
+    return session.address ?? null;
+  }
+  return null;
+}
+
+export function setStoredSession(session: WalletSession) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(WALLET_SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifyWalletSessionUpdated();
+}
+
+export function clearStoredSession(type?: WalletSession["type"]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (!type) {
+    window.localStorage.removeItem(WALLET_SESSION_STORAGE_KEY);
+    notifyWalletSessionUpdated();
+    return;
+  }
+  const existing = getStoredSession();
+  if (!existing || existing.type !== type) {
+    return;
+  }
+  window.localStorage.removeItem(WALLET_SESSION_STORAGE_KEY);
+  notifyWalletSessionUpdated();
+}
+
+export function setWalletConnectAddress(address: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const trimmed = address.trim();
+  if (!trimmed) {
+    return;
+  }
+  const existing = getStoredSession();
+  if (!existing || existing.type !== "walletconnect") {
+    return;
+  }
+  if (existing.address === trimmed) {
+    return;
+  }
+  setStoredSession({ ...existing, address: trimmed });
+}
+
+let restorePromise: Promise<void> | null = null;
+
+export async function restoreWalletSession() {
+  if (restorePromise) {
+    return restorePromise;
+  }
+  restorePromise = (async () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
+      return;
+    }
+    const stored = getStoredSession();
+    if (!stored || stored.type !== "walletconnect") {
+      return;
+    }
+    const result = await validateSession(stored.topic);
+    if (!result.ok) {
+      clearStoredSession("walletconnect");
+      return;
+    }
+    const peerMetadata = result.session.peer?.metadata;
+    const nextPeer =
+      peerMetadata
+        ? {
+            name: peerMetadata.name,
+            url: peerMetadata.url,
+            icons: peerMetadata.icons
+          }
+        : undefined;
+    const prevPeer = stored.peer;
+    const peerChanged =
+      (nextPeer?.name ?? "") !== (prevPeer?.name ?? "") ||
+      (nextPeer?.url ?? "") !== (prevPeer?.url ?? "") ||
+      JSON.stringify(nextPeer?.icons ?? []) !== JSON.stringify(prevPeer?.icons ?? []);
+
+    if (peerChanged) {
+      setStoredSession({
+        ...stored,
+        peer: nextPeer
+      });
+    }
+
+    if (!stored.address) {
+      const addresses = await requestAddresses(stored.topic);
+      const [first] = addresses ?? [];
+      if (first) {
+        setWalletConnectAddress(first);
+      }
+    }
+  })();
+  return restorePromise;
 }
 
 function readConnectingSince(): number | null {
@@ -101,7 +349,7 @@ export function useWallet(): WalletState {
     (remainingMs: number) => {
       clearConnectTimeout();
       connectTimeoutRef.current = window.setTimeout(() => {
-        const nextSession = readWalletSession();
+        const nextSession = getStoredSession();
         if (!nextSession) {
           setStatus("disconnected");
           setSession(null);
@@ -119,7 +367,7 @@ export function useWallet(): WalletState {
     }
 
     const sync = () => {
-      const nextSession = readWalletSession();
+      const nextSession = getStoredSession();
       setSession(nextSession);
       if (nextSession) {
         setStatus("connected");
@@ -174,15 +422,19 @@ export function useWallet(): WalletState {
     setStatus("connecting");
     setConnectingSince(Date.now());
     scheduleConnectTimeout(CONNECT_TIMEOUT_MS);
-    openTonalliConnect({ returnUrl: getReturnUrl("/connected") });
+    const returnUrl = getReturnUrl("/connected");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[wallet] returnUrl=", returnUrl);
+    }
+    openTonalliConnect({ returnUrl });
     connectInFlightRef.current = false;
   }, [scheduleConnectTimeout, status]);
 
   const disconnect = useCallback(() => {
     setStatus("disconnected");
     setSession(null);
+    clearStoredSession();
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(WALLET_SESSION_STORAGE_KEY);
       window.localStorage.removeItem(CONNECTING_SINCE_KEY);
     }
     clearConnectTimeout();
