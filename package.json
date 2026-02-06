@@ -9,11 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@walletconnect/sign-client": "^2.23.4",
     "chronik-client": "^4.1.0",
     "ecash-agora": "^2.6.10",
     "ecash-lib": "^4.5.2",
     "ecashaddrjs": "^2.0.0",
     "next": "14.2.5",
+    "qrcode.react": "^4.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

@@ -44,7 +44,7 @@ export function RmzOnChainSection() {
             On-chain RMZ
           </h1>
           <p className="max-w-2xl text-sm text-white/70">
-            Datos reales desde Chronik. Conecta Tonalli para ver tu balance RMZ.
+            Datos reales desde Chronik. Connect wallet to load on-chain data.
           </p>
           {configWarning ? (
             <div className="mt-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-2 text-xs text-gold">
@@ -88,7 +88,7 @@ export function RmzOnChainSection() {
         <div className="rounded-2xl border border-white/10 bg-obsidian-950/70 p-4">
           <p className="text-[11px] uppercase tracking-[0.3em] text-white/40">Balance</p>
           <p className="mt-2 text-lg text-white">
-            {walletAddress ? rmzFormatted ?? "—" : "Connect wallet"}
+            {walletAddress ? rmzFormatted ?? "—" : "Connect wallet to load on-chain data."}
           </p>
           {walletAddress ? (
             <button

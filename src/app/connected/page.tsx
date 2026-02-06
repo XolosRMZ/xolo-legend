@@ -6,9 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { copyText } from "@/lib/clipboard";
 import {
-  notifyWalletSessionUpdated,
-  WALLET_SESSION_STORAGE_KEY,
-  type WalletSession
+  setStoredSession,
+  type TonalliSession
 } from "@/lib/wallet";
 
 type ConnectResult = {
@@ -62,7 +61,7 @@ export default function ConnectedPage() {
     // - /connected#?address=...
     const hashParams = parseHashParams();
     const getParam = (key: string) =>
-      searchParams.get(key) || hashParams?.get(key) || "";
+      hashParams?.get(key) || searchParams.get(key) || "";
 
     const rawAddress = getParam("address").trim();
     const rawPubkey = getParam("pubkey").trim();
@@ -71,15 +70,38 @@ export default function ConnectedPage() {
       HEX_KEY.test(rawPubkey) && PUBKEY_LENGTHS.has(rawPubkey.length) ? rawPubkey : "";
     const chain = getParam("chain").trim();
     const wallet = getParam("wallet").trim() || "tonalli";
+    const status = getParam("status").trim();
+    const requestId = getParam("requestId").trim();
+    const nonce = getParam("nonce").trim();
+    const ts = getParam("ts").trim();
+    const origin = getParam("origin").trim();
+    const signature = getParam("signature").trim();
 
-    return { address, pubkey, chain, wallet };
+    return {
+      address,
+      pubkey,
+      chain,
+      wallet,
+      status,
+      requestId,
+      nonce,
+      ts,
+      origin,
+      signature
+    };
   }, [searchParams]);
 
   useEffect(() => {
-    if (!parsed.address && !parsed.pubkey) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[connected] params=", parsed);
+    }
+  }, [parsed]);
+
+  useEffect(() => {
+    if (parsed.status && parsed.status !== "ok") {
       setResult({
         status: "error",
-        message: "No wallet data received."
+        message: "Tonalli connection failed."
       });
       return () => {
         if (redirectTimerRef.current !== null) {
@@ -89,22 +111,94 @@ export default function ConnectedPage() {
       };
     }
 
-    const session: WalletSession = {
+    if (parsed.origin && parsed.origin !== window.location.origin) {
+      setResult({
+        status: "error",
+        message: "Origin mismatch in Tonalli response."
+      });
+      return () => {
+        if (redirectTimerRef.current !== null) {
+          window.clearTimeout(redirectTimerRef.current);
+          redirectTimerRef.current = null;
+        }
+      };
+    }
+
+    if (parsed.ts) {
+      const parsedTs = Number(parsed.ts);
+      if (!Number.isFinite(parsedTs)) {
+        setResult({
+          status: "error",
+          message: "Invalid timestamp in Tonalli response."
+        });
+        return () => {
+          if (redirectTimerRef.current !== null) {
+            window.clearTimeout(redirectTimerRef.current);
+            redirectTimerRef.current = null;
+          }
+        };
+      }
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (nowSeconds - parsedTs > 300) {
+        setResult({
+          status: "error",
+          message: "Tonalli response expired."
+        });
+        return () => {
+          if (redirectTimerRef.current !== null) {
+            window.clearTimeout(redirectTimerRef.current);
+            redirectTimerRef.current = null;
+          }
+        };
+      }
+    }
+
+    if (!parsed.address) {
+      setResult({
+        status: "error",
+        message: "No address received."
+      });
+      return () => {
+        if (redirectTimerRef.current !== null) {
+          window.clearTimeout(redirectTimerRef.current);
+          redirectTimerRef.current = null;
+        }
+      };
+    }
+
+    const session: TonalliSession = {
+      type: "tonalli",
       wallet: "tonalli",
-      chain: parsed.chain || "ecash",
+      chain: "ecash",
+      address: parsed.address,
       connectedAt: new Date().toISOString()
     };
-
-    if (parsed.address) {
-      session.address = parsed.address;
-    }
 
     if (parsed.pubkey) {
       session.pubkey = parsed.pubkey;
     }
 
-    window.localStorage.setItem(WALLET_SESSION_STORAGE_KEY, JSON.stringify(session));
-    notifyWalletSessionUpdated();
+    if (parsed.signature) {
+      session.signature = parsed.signature;
+    }
+
+    if (parsed.requestId) {
+      session.requestId = parsed.requestId;
+    }
+
+    if (parsed.nonce) {
+      session.nonce = parsed.nonce;
+    }
+
+    if (parsed.ts) {
+      session.ts = parsed.ts;
+    }
+
+    if (parsed.origin) {
+      session.origin = parsed.origin;
+    }
+
+    setStoredSession(session);
     window.history.replaceState({}, "", "/connected");
     setResult({
       status: "success",

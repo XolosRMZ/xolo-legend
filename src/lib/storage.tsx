@@ -45,6 +45,37 @@ export function useTxid(listingId: string) {
   return { txid, setTxid };
 }
 
+export type PurchaseStatus = {
+  state: "idle" | "pending" | "broadcasted" | "confirmed" | "error";
+  txid?: string;
+  error?: string;
+};
+
+export function usePurchaseStatus(offerId?: string) {
+  const key = "xololegend:purchaseStatus";
+  const [statusMap, setStatusMap] = useLocalStorageState<
+    Record<string, PurchaseStatus>
+  >(
+    key,
+    {}
+  );
+  const purchaseStatus = offerId
+    ? statusMap[offerId] ?? { state: "idle" as const }
+    : { state: "idle" as const };
+
+  const setPurchaseStatus = useCallback(
+    (next: PurchaseStatus) => {
+      if (!offerId) {
+        return;
+      }
+      setStatusMap({ ...statusMap, [offerId]: next });
+    },
+    [offerId, setStatusMap, statusMap]
+  );
+
+  return { purchaseStatus, setPurchaseStatus };
+}
+
 interface FavoritesContextValue {
   favorites: string[];
   toggleFavorite: (id: string) => void;

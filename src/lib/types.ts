@@ -1,4 +1,4 @@
-export type ListingType = "nft" | "rmz";
+export type ListingType = "nft" | "rmz" | "etoken" | "mintpass";
 
 export type ListingStatus = "available" | "sold";
 
@@ -20,7 +20,13 @@ export interface Listing {
   tonalliDeepLink: string;
   tonalliFallbackUrl: string;
   whatsappUrl?: string;
-  source?: "demo" | "registry";
+  source?: "demo" | "registry" | "walletconnect" | "tonalli";
+  tokenId?: string;
+  seller?: string;
+  timestamp?: number;
+  amount?: string;
+  live?: boolean;
+  topic?: string;
 }
 
 export interface CollectionInfo {
