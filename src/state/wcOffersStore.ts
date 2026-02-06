@@ -250,6 +250,14 @@ export function markWcOfferSold(offerId: string, txid?: string) {
   notify();
 }
 
+export function removeWcOffer(offerId: string) {
+  if (!offerId) return;
+  const next = offers.filter((item) => item.offerId !== offerId);
+  if (next.length === offers.length) return;
+  offers = next;
+  notify();
+}
+
 export function clearWcOffers() {
   if (!offers.length) return;
   offers = [];
@@ -309,11 +317,16 @@ export function useWcOffers() {
     dismissWcOffer(offerId, topic);
   }, []);
 
+  const removeOffer = useCallback((offerId: string) => {
+    removeWcOffer(offerId);
+  }, []);
+
   return {
     offers: current.offers,
     tokenMeta: current.tokenMeta,
     tokenMetaStatus: current.tokenMetaStatus,
     markBought,
-    dismissOffer
+    dismissOffer,
+    removeOffer
   };
 }

@@ -59,7 +59,7 @@ export async function connectWalletConnect(
   approval: () => Promise<SessionTypes.Struct>;
 }> {
   const events = Array.from(
-    new Set([...(options?.events ?? []), "xolos_offer_published"])
+    new Set([...(options?.events ?? []), "xolos_offer_published", "xolos_offer_consumed"])
   );
   const { uri, approval } = await client.connect({
     requiredNamespaces: {

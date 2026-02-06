@@ -8,11 +8,13 @@ import {
   clearWcOffers,
   getWcOffers,
   isTonalliOfferPayload,
+  removeWcOffer,
   subscribeWcOffers
 } from "@/state/wcOffersStore";
 import { useWcDebug } from "@/lib/wcDebug";
 
 const OFFER_EVENT = "xolos_offer_published";
+const OFFER_CONSUMED_EVENT = "xolos_offer_consumed";
 const CHAIN_ID = "ecash:mainnet";
 const DEBUG_EVENTS_MAX = 10;
 
@@ -23,6 +25,25 @@ type DebugEvent = {
   topic?: string;
   payload?: unknown;
 };
+
+function normalizeOfferConsumedPayload(
+  payload: unknown
+): { ok: true; offerId: string; txid: string } | { ok: false; reason: string } {
+  if (!payload || typeof payload !== "object") {
+    return { ok: false, reason: "invalid payload" };
+  }
+  const data = payload as { version?: unknown; offerId?: unknown; txid?: unknown };
+  if (data.version !== 1) {
+    return { ok: false, reason: "version mismatch" };
+  }
+  if (typeof data.offerId !== "string" || !data.offerId.trim()) {
+    return { ok: false, reason: "missing offerId" };
+  }
+  if (typeof data.txid !== "string" || !data.txid.trim()) {
+    return { ok: false, reason: "missing txid" };
+  }
+  return { ok: true, offerId: data.offerId.trim(), txid: data.txid.trim() };
+}
 
 export function WcBridge() {
   const startedRef = useRef(false);
@@ -89,50 +110,83 @@ export function WcBridge() {
             topic: event.topic,
             payload: data
           });
-          if (name !== OFFER_EVENT) {
-            return;
-          }
-          if (!event?.topic || !client.session.get(event.topic)) {
-            console.debug("[XoloLegend][WC][offer_published][REJECT]", "missing session", data);
-            return;
-          }
-          if (chainId !== CHAIN_ID) {
-            console.debug("[XoloLegend][WC][offer_published][REJECT]", "chainId mismatch", data);
-            return;
-          }
-          if (!isTonalliOfferPayload(data)) {
+          if (name === OFFER_EVENT) {
+            if (!event?.topic || !client.session.get(event.topic)) {
+              console.debug("[XoloLegend][WC][offer_published][REJECT]", "missing session", data);
+              return;
+            }
+            if (chainId !== CHAIN_ID) {
+              console.debug("[XoloLegend][WC][offer_published][REJECT]", "chainId mismatch", data);
+              return;
+            }
+            if (!isTonalliOfferPayload(data)) {
+              console.debug(
+                "[XoloLegend][WC][offer_published][REJECT]",
+                "invalid payload",
+                data
+              );
+              return;
+            }
+            const result = addWcOffer(data, { topic: event.topic });
+            if (!result.ok) {
+              console.debug(
+                "[XoloLegend][WC][offer_published][REJECT]",
+                result.reason,
+                data
+              );
+              return;
+            }
             console.debug(
-              "[XoloLegend][WC][offer_published][REJECT]",
-              "invalid payload",
-              data
+              "[XoloLegend][WC][offer_published][ACCEPT] offerId=",
+              result.offer.offerId,
+              "kind=",
+              result.offer.kind,
+              "topic=",
+              result.offer.topic
             );
-            return;
-          }
-          const result = addWcOffer(data, { topic: event.topic });
-          if (!result.ok) {
+            const currentOffers = getWcOffers();
             console.debug(
-              "[XoloLegend][WC][offer_published][REJECT]",
-              result.reason,
-              data
+              "[XoloLegend][WC][store] size=",
+              currentOffers.length,
+              "top=",
+              currentOffers[0]?.offerId ?? null
             );
+            refreshSessionTopics();
             return;
           }
-          console.debug(
-            "[XoloLegend][WC][offer_published][ACCEPT] offerId=",
-            result.offer.offerId,
-            "kind=",
-            result.offer.kind,
-            "topic=",
-            result.offer.topic
-          );
-          const currentOffers = getWcOffers();
-          console.debug(
-            "[XoloLegend][WC][store] size=",
-            currentOffers.length,
-            "top=",
-            currentOffers[0]?.offerId ?? null
-          );
-          refreshSessionTopics();
+
+          if (name === OFFER_CONSUMED_EVENT) {
+            if (!event?.topic || !client.session.get(event.topic)) {
+              console.debug(
+                "[XoloLegend][WC][offer_consumed][REJECT] reason=missing session"
+              );
+              return;
+            }
+            if (chainId !== CHAIN_ID) {
+              console.debug(
+                "[XoloLegend][WC][offer_consumed][REJECT] reason=chainId mismatch"
+              );
+              return;
+            }
+            const normalized = normalizeOfferConsumedPayload(data);
+            if (!normalized.ok) {
+              console.debug(
+                "[XoloLegend][WC][offer_consumed][REJECT] reason=",
+                normalized.reason
+              );
+              return;
+            }
+            removeWcOffer(normalized.offerId);
+            console.debug(
+              "[XoloLegend][WC][offer_consumed][ACCEPT] offerId=",
+              normalized.offerId,
+              "txid=",
+              normalized.txid,
+              "topic=",
+              event.topic
+            );
+            refreshSessionTopics();
+          }
         };
 
         const handleSessionDelete = () => {

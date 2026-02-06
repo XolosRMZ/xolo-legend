@@ -17,6 +17,7 @@ import {
 } from "@/state/wcOffersStore";
 import { fetchToken } from "@/lib/chronik";
 import { useToast } from "@/components/ToastProvider";
+import { spentOutpointTracker } from "@/lib/SpentOutpointTracker";
 
 const tabs = [
   { id: "nft", label: "NFTs" },
@@ -51,6 +52,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   const [showDemo, setShowDemo] = useState(false);
   const [registryListings, setRegistryListings] = useState<RegistryListing[]>([]);
   const { offers: liveOffers, tokenMeta, tokenMetaStatus, dismissOffer } = useWcOffers();
+  const trackedOutpointsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (initialCollection) {
@@ -224,6 +226,33 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
         });
     });
   }, [liveOffers, tokenMetaStatus]);
+
+  useEffect(() => {
+    const next = new Set(
+      liveOffers.map((offer) => offer.offerId).filter(Boolean)
+    );
+    const prev = trackedOutpointsRef.current;
+    next.forEach((offerId) => {
+      if (!prev.has(offerId)) {
+        spentOutpointTracker.register(offerId);
+      }
+    });
+    prev.forEach((offerId) => {
+      if (!next.has(offerId)) {
+        spentOutpointTracker.unregister(offerId);
+      }
+    });
+    trackedOutpointsRef.current = next;
+  }, [liveOffers]);
+
+  useEffect(() => {
+    return () => {
+      trackedOutpointsRef.current.forEach((offerId) => {
+        spentOutpointTracker.unregister(offerId);
+      });
+      trackedOutpointsRef.current = new Set();
+    };
+  }, []);
 
   const combinedListings = useMemo<Listing[]>(() => {
     return [...registryDisplayListings, ...demoListings];
