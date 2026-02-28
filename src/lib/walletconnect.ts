@@ -6,8 +6,8 @@ import type { SessionTypes } from "@walletconnect/types";
 const CLIENT_METADATA = {
   name: "XOLOLEGEND",
   description: "XOLOLEGEND RMZ marketplace",
-  url: "https://xololegend.com",
-  icons: ["https://xololegend.com/icon.png"]
+  url: "https://www.xololegend.xyz",
+  icons: ["https://www.xololegend.xyz/icon.png"]
 };
 
 let clientPromise: Promise<SignClient> | null = null;
@@ -18,17 +18,21 @@ export async function initSignClient() {
     if (!projectId) {
       throw new Error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID");
     }
-    const metadataUrl =
-      process.env.NODE_ENV === "production"
-        ? CLIENT_METADATA.url
-        : typeof window !== "undefined"
-          ? process.env.NEXT_PUBLIC_SITE_URL?.trim() || window.location.origin
-          : CLIENT_METADATA.url;
+    const isProduction = process.env.NODE_ENV === "production";
+    const dynamicOrigin =
+      typeof window !== "undefined"
+        ? process.env.NEXT_PUBLIC_SITE_URL?.trim() || window.location.origin
+        : CLIENT_METADATA.url;
+    const metadataUrl = isProduction ? CLIENT_METADATA.url : dynamicOrigin;
+    const metadataIcons = isProduction
+      ? CLIENT_METADATA.icons
+      : [`${dynamicOrigin.replace(/\/$/, "")}/icon.png`];
     clientPromise = SignClient.init({
       projectId,
       metadata: {
         ...CLIENT_METADATA,
-        url: metadataUrl
+        url: metadataUrl,
+        icons: metadataIcons
       }
     });
   }
@@ -62,7 +66,7 @@ export async function connectWalletConnect(
     new Set([...(options?.events ?? []), "xolos_offer_published", "xolos_offer_consumed"])
   );
   const { uri, approval } = await client.connect({
-    requiredNamespaces: {
+    optionalNamespaces: {
       ecash: {
         chains: ["ecash:mainnet"],
         methods: [
@@ -81,15 +85,50 @@ export async function connectWalletConnect(
   return { uri, approval };
 }
 
+export function getEcashChainIdOrThrow(session: SessionTypes.Struct): string {
+  const namespaces = session.namespaces;
+  if (!namespaces) {
+    throw new Error("WalletConnect session is missing namespaces.");
+  }
+  const ecashNamespace = namespaces.ecash;
+  if (!ecashNamespace) {
+    throw new Error(
+      `WalletConnect session is missing ecash namespace. namespaces=${JSON.stringify(namespaces)}`
+    );
+  }
+  const chains = ecashNamespace.chains;
+  if (!Array.isArray(chains) || chains.length === 0) {
+    throw new Error(
+      `WalletConnect session ecash namespace is missing approved chains. namespaces=${JSON.stringify(namespaces)}`
+    );
+  }
+  if (!chains.includes("ecash:mainnet")) {
+    throw new Error(
+      `WalletConnect session does not include required chain ecash:mainnet. namespaces=${JSON.stringify(namespaces)}`
+    );
+  }
+  return "ecash:mainnet";
+}
+
+async function getEcashChainIdByTopicOrThrow(topic: string): Promise<string> {
+  const client = await initSignClient();
+  const session = client.session.get(topic);
+  if (!session) {
+    throw new Error(`WalletConnect session not found for topic ${topic}.`);
+  }
+  return getEcashChainIdOrThrow(session);
+}
+
 export async function requestAddresses(topic: string): Promise<string[] | null> {
   if (!topic) {
     return null;
   }
   try {
     const client = await initSignClient();
+    const chainId = await getEcashChainIdByTopicOrThrow(topic);
     const response = await client.request({
       topic,
-      chainId: "ecash:mainnet",
+      chainId,
       request: { method: "ecash_getAddresses", params: [] }
     });
     if (Array.isArray(response)) {
@@ -132,14 +171,17 @@ export async function requestSignAndBroadcast({
         ? Math.ceil(timeoutMs / 1000)
         : 300;
   const clampedTtlSeconds = Math.min(604800, Math.max(300, ttlSecondsRaw));
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expiry = nowSec + clampedTtlSeconds;
+  const chainId = await getEcashChainIdByTopicOrThrow(topic);
   return client.request({
     topic,
-    chainId: "ecash:mainnet",
+    chainId,
     request: {
       method: "ecash_signAndBroadcastTransaction",
       params: { offerId: trimmed }
     },
-    expiry: clampedTtlSeconds
+    expiry
   });
 }
 

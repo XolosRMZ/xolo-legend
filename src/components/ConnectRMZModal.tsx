@@ -68,6 +68,10 @@ export function ConnectRMZModal({ open, onClose, onConnected }: ConnectRMZModalP
         setLoading(false);
         approveRef.current = approval();
         const session = await approveRef.current;
+        console.log(
+          "[WC][Debug] approved namespaces:",
+          JSON.stringify(session.namespaces, null, 2)
+        );
         if (cancelledRef.current) {
           return;
         }
