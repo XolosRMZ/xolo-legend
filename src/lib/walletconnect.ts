@@ -85,38 +85,33 @@ export async function connectWalletConnect(
   return { uri, approval };
 }
 
-export function getEcashChainIdOrThrow(session: SessionTypes.Struct): string {
-  const namespaces = session.namespaces;
-  if (!namespaces) {
-    throw new Error("WalletConnect session is missing namespaces.");
+export function getApprovedEcashChainId(
+  session: SessionTypes.Struct | null | undefined
+): string {
+  const chains = session?.namespaces?.ecash?.chains;
+  if (Array.isArray(chains) && chains.includes("ecash:1")) {
+    return "ecash:1";
   }
-  const ecashNamespace = namespaces.ecash;
-  if (!ecashNamespace) {
-    throw new Error(
-      `WalletConnect session is missing ecash namespace. namespaces=${JSON.stringify(namespaces)}`
-    );
+  if (Array.isArray(chains) && chains.length > 0) {
+    return chains[0];
   }
-  const chains = ecashNamespace.chains;
-  if (!Array.isArray(chains) || chains.length === 0) {
-    throw new Error(
-      `WalletConnect session ecash namespace is missing approved chains. namespaces=${JSON.stringify(namespaces)}`
-    );
-  }
-  if (!chains.includes("ecash:mainnet")) {
-    throw new Error(
-      `WalletConnect session does not include required chain ecash:mainnet. namespaces=${JSON.stringify(namespaces)}`
-    );
-  }
-  return "ecash:mainnet";
+  return "ecash:1";
 }
 
-async function getEcashChainIdByTopicOrThrow(topic: string): Promise<string> {
+async function getApprovedEcashChainIdByTopic(topic: string): Promise<string> {
   const client = await initSignClient();
   const session = client.session.get(topic);
   if (!session) {
     throw new Error(`WalletConnect session not found for topic ${topic}.`);
   }
-  return getEcashChainIdOrThrow(session);
+  const chainId = getApprovedEcashChainId(session);
+  console.log(
+    "[WC] using chainId:",
+    chainId,
+    "approved:",
+    session?.namespaces?.ecash?.chains
+  );
+  return chainId;
 }
 
 export async function requestAddresses(topic: string): Promise<string[] | null> {
@@ -125,7 +120,7 @@ export async function requestAddresses(topic: string): Promise<string[] | null> 
   }
   try {
     const client = await initSignClient();
-    const chainId = await getEcashChainIdByTopicOrThrow(topic);
+    const chainId = await getApprovedEcashChainIdByTopic(topic);
     const response = await client.request({
       topic,
       chainId,
@@ -171,7 +166,7 @@ export async function requestSignAndBroadcast({
         ? Math.ceil(timeoutMs / 1000)
         : 300;
   const clampedTtlSeconds = Math.min(604800, Math.max(300, ttlSecondsRaw));
-  const chainId = await getEcashChainIdByTopicOrThrow(topic);
+  const chainId = await getApprovedEcashChainIdByTopic(topic);
   return client.request({
     topic,
     chainId,
