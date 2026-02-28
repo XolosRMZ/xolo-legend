@@ -171,8 +171,6 @@ export async function requestSignAndBroadcast({
         ? Math.ceil(timeoutMs / 1000)
         : 300;
   const clampedTtlSeconds = Math.min(604800, Math.max(300, ttlSecondsRaw));
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expiry = nowSec + clampedTtlSeconds;
   const chainId = await getEcashChainIdByTopicOrThrow(topic);
   return client.request({
     topic,
@@ -181,7 +179,7 @@ export async function requestSignAndBroadcast({
       method: "ecash_signAndBroadcastTransaction",
       params: { offerId: trimmed }
     },
-    expiry
+    expiry: clampedTtlSeconds
   });
 }
 
