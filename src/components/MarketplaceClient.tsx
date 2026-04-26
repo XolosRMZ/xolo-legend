@@ -27,6 +27,19 @@ const tabs = [
   { id: "favorites", label: "Favoritos" }
 ];
 
+const validListingTypes = new Set<Listing["type"]>([
+  "nft",
+  "rmz",
+  "etoken",
+  "mintpass"
+]);
+
+function normalizeListingType(type?: string) {
+  return type && validListingTypes.has(type as Listing["type"])
+    ? (type as Listing["type"])
+    : ("nft" as const);
+}
+
 const isLikelyImageUrl = (value?: string) =>
   Boolean(
     value &&
@@ -90,7 +103,8 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
           Boolean(RMZ_TOKEN_ID) &&
           listing.tokenId.toLowerCase() === RMZ_TOKEN_ID.toLowerCase()
             ? "rmz"
-            : listing.type,
+            : normalizeListingType(listing.type),
+        offerId: listing.offerId || listing.offerTxId || "",
         tonalliFallbackUrl: listing.tonalliFallbackUrl || TONALLI_WEB_URL,
         source: "registry" as const
       })),
@@ -272,7 +286,9 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
 
   const collections = useMemo(() => {
     const scoped = [...combinedListings, ...liveListings].filter((listing) =>
-      activeTab === "favorites" ? true : listing.type === activeTab
+      activeTab === "favorites"
+        ? true
+        : normalizeListingType(listing.type) === activeTab
     );
     const unique = new Set(scoped.map((listing) => listing.collection));
     return Array.from(unique);
@@ -319,10 +335,11 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   const filteredListings = useMemo(() => {
     const lowered = search.toLowerCase();
     let next = combinedListings.filter((listing) => {
+      const listingType = normalizeListingType(listing.type);
       if (activeTab === "favorites" && !favorites.includes(listing.id)) {
         return false;
       }
-      if (activeTab !== "favorites" && listing.type !== activeTab) {
+      if (activeTab !== "favorites" && listingType !== activeTab) {
         return false;
       }
       if (!showDemo && !isRegistryDisplayable(listing)) {
