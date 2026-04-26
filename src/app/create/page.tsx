@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOnChain, type OfferStatus } from "@/state/onchain";
-import { addListing, isRegistryPersistent, type RegistryListing } from "@/lib/registry";
+import {
+  addListing,
+  isRegistryPersistent,
+  type RegistryListingInput
+} from "@/lib/registry";
 import { CHRONIK_URL, RMZ_TOKEN_ID, TONALLI_WEB_URL } from "@/lib/constants";
 import { isTxidOnly, parseOfferId } from "@/lib/offerId";
 import { buildTonalliDeepLink } from "@/lib/tonalliDeepLink";
@@ -214,7 +218,7 @@ export default function CreateListingPage() {
     }
     const trimmed = offerTxId.trim();
     const terms = verification?.terms;
-    const listing: RegistryListing = {
+    const listing: RegistryListingInput = {
       id: buildId(),
       createdAt: Date.now(),
       title: title.trim(),

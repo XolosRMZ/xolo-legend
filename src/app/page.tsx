@@ -1,13 +1,14 @@
 import { MarketplaceClient } from "@/components/MarketplaceClient";
 import { RmzOnChainSection } from "@/components/RmzOnChainSection";
 import { CollectionCard } from "@/components/CollectionCard";
-import listings from "@/data/listings.json";
 import collections from "@/data/collections.json";
 import { TONALLI_WEB_URL } from "@/lib/links";
-import type { Listing } from "@/lib/types";
+import { loadRegistry } from "@/lib/registry";
 
-export default function MarketplacePage() {
-  const typedListings = listings as Listing[];
+export const dynamic = "force-dynamic";
+
+export default async function MarketplacePage() {
+  const typedListings = await loadRegistry();
 
   return (
     <div className="space-y-10">

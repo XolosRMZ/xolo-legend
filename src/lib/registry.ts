@@ -1,10 +1,27 @@
-// src/lib/registry.ts
+import type { Listing, ListingType } from "@/lib/types";
 
-// Esta línea lee la variable que configuraste en Vercel
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api.xololegend.xyz/listings";
+const DEFAULT_REGISTRY_URL = "https://api.xolosarmy.xyz/listings";
 
-export type RegistryListing = {
+type RegistryVerification =
+  | "available"
+  | "spent"
+  | "invalid"
+  | "not_found"
+  | "unknown";
+
+export type RegistryListing = Listing & {
+  createdAt: number;
+  title: string;
+  description: string;
+  collection: string;
+  imageUrl?: string;
+  offerTxId?: string;
+  priceSats?: string;
+  amountAtoms?: string;
+  verification?: RegistryVerification;
+};
+
+export type RegistryListingInput = {
   id: string;
   createdAt: number;
   title: string;
@@ -16,8 +33,113 @@ export type RegistryListing = {
   tokenId?: string;
   priceSats?: string;
   amountAtoms?: string;
-  verification?: "available" | "spent" | "invalid" | "not_found" | "unknown";
+  verification?: RegistryVerification;
 };
+
+type RegistryApiRecord = Partial<RegistryListingInput> & {
+  ID?: unknown;
+  offertxid?: unknown;
+  image?: unknown;
+};
+
+function normalizeRegistryUrl(url?: string) {
+  const trimmed = url?.trim();
+  if (!trimmed) {
+    return DEFAULT_REGISTRY_URL;
+  }
+  return /\/listings\/?$/i.test(trimmed)
+    ? trimmed.replace(/\/+$/, "")
+    : `${trimmed.replace(/\/+$/, "")}/listings`;
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function toOptionalString(value: unknown) {
+  const next = asString(value);
+  return next ? next : undefined;
+}
+
+function normalizeVerification(value: unknown): RegistryVerification | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  switch (value) {
+    case "available":
+    case "spent":
+    case "invalid":
+    case "not_found":
+    case "unknown":
+      return value;
+    default:
+      return "unknown";
+  }
+}
+
+function inferListingType(tokenId?: string): ListingType {
+  return tokenId ? "rmz" : "nft";
+}
+
+function normalizePriceAmount(priceSats?: string) {
+  if (!priceSats) {
+    return 0;
+  }
+  const numeric = Number(priceSats);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function buildRegistryListing(item: RegistryApiRecord): RegistryListing {
+  const id = asString(item.id) || asString(item.ID);
+  const title = asString(item.title) || "XOLOLEGEND Listing";
+  const description = toOptionalString(item.description) ?? "User listing";
+  const collection = toOptionalString(item.collection) ?? "User Listings";
+  const imageUrl =
+    toOptionalString(item.imageUrl) ??
+    toOptionalString(item.image) ??
+    "/placeholders/nft-1.svg";
+  const offerTxId = toOptionalString(item.offerTxId) ?? toOptionalString(item.offertxid);
+  const offerId = toOptionalString(item.offerId) ?? offerTxId ?? "";
+  const tokenId = toOptionalString(item.tokenId);
+  const priceSats = toOptionalString(item.priceSats);
+  const verification = normalizeVerification(item.verification) ?? "unknown";
+  const createdAt =
+    typeof item.createdAt === "number" && Number.isFinite(item.createdAt)
+      ? item.createdAt
+      : Date.now();
+  const listingType = inferListingType(tokenId);
+
+  return {
+    id,
+    createdAt,
+    title,
+    description,
+    collection,
+    imageUrl,
+    offerTxId,
+    offerId,
+    tokenId,
+    priceSats,
+    amountAtoms: toOptionalString(item.amountAtoms),
+    verification,
+    type: listingType,
+    name: title,
+    image: imageUrl,
+    price: { amount: normalizePriceAmount(priceSats), symbol: "sats" },
+    status:
+      verification === "spent" || verification === "invalid" || verification === "not_found"
+        ? "sold"
+        : "available",
+    tonalliDeepLink: offerId ? `tonalli://offer/${offerId}` : "tonalli://offer/",
+    tonalliFallbackUrl: "https://tonalli.app/",
+    whatsappUrl: `https://wa.me/?text=${encodeURIComponent(`Estoy interesado en ${title}`)}`,
+    source: "registry"
+  };
+}
+
+function getRegistryUrl() {
+  return normalizeRegistryUrl(process.env.NEXT_PUBLIC_API_URL);
+}
 
 /**
  * Indica que el sistema es global
@@ -31,17 +153,13 @@ export function isRegistryPersistent() {
  */
 export async function loadRegistry(): Promise<RegistryListing[]> {
   try {
-    const response = await fetch(API_URL);
+    const response = await fetch(getRegistryUrl(), { cache: "no-store" });
     if (!response.ok) throw new Error("Error en servidor");
-    const data = await response.json();
-
-    // IMPORTANTE: Transformamos el objeto para que el Frontend encuentre 'offerId'
-    return data.map((item: any) => ({
-      ...item,
-      // Normalizamos nombres de campos para el componente ListingCard
-      offerId: item.offerTxId || item.offertxid || "",
-      id: item.id || item.ID || ""
-    }));
+    const data = (await response.json()) as unknown;
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return data.map((item) => buildRegistryListing((item ?? {}) as RegistryApiRecord));
   } catch (error) {
     console.error("Error cargando registro:", error);
     return [];
@@ -51,9 +169,9 @@ export async function loadRegistry(): Promise<RegistryListing[]> {
 /**
  * Publica un listado al VPS de Hostinger
  */
-export async function addListing(listing: RegistryListing): Promise<void> {
+export async function saveRegistryListing(listing: RegistryListingInput): Promise<void> {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(getRegistryUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(listing),
@@ -63,6 +181,10 @@ export async function addListing(listing: RegistryListing): Promise<void> {
     console.error("Error de red al publicar:", error);
     throw error;
   }
+}
+
+export async function addListing(listing: RegistryListingInput): Promise<void> {
+  await saveRegistryListing(listing);
 }
 
 /**

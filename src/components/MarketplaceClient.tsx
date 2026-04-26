@@ -35,7 +35,7 @@ const isLikelyImageUrl = (value?: string) =>
   );
 
 interface MarketplaceClientProps {
-  listings: Listing[];
+  listings: RegistryListing[];
 }
 
 export function MarketplaceClient({ listings }: MarketplaceClientProps) {
@@ -50,7 +50,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   const [collection, setCollection] = useState(initialCollection);
   const [sort, setSort] = useState("newest");
   const [showDemo, setShowDemo] = useState(false);
-  const [registryListings, setRegistryListings] = useState<RegistryListing[]>([]);
+  const [registryListings, setRegistryListings] = useState<RegistryListing[]>(listings);
   const { offers: liveOffers, tokenMeta, tokenMetaStatus, dismissOffer } = useWcOffers();
   const trackedOutpointsRef = useRef(new Set<string>());
 
@@ -59,6 +59,10 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
       setCollection(initialCollection);
     }
   }, [initialCollection]);
+
+  useEffect(() => {
+    setRegistryListings(listings);
+  }, [listings]);
 
   useEffect(() => {
     // Llamada asíncrona al registro global del VPS
@@ -77,39 +81,21 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
     setCollection("");
   }, [activeTab]);
 
-  const registryDisplayListings = useMemo(() => {
-    return registryListings.map((listing) => {
-      const tokenId = listing.tokenId?.toLowerCase();
-      const isRmz =
-        Boolean(tokenId) &&
-        Boolean(RMZ_TOKEN_ID) &&
-        tokenId === RMZ_TOKEN_ID.toLowerCase();
-      const priceAmount = listing.priceSats ? Number(listing.priceSats) : 0;
-      const offerId = listing.offerId || listing.offerTxId || "";
-      const whatsappText = encodeURIComponent(
-        `Estoy interesado en ${listing.title}`
-      );
-      return {
-        id: listing.id,
-        type: isRmz ? "rmz" : "nft",
-        collection: listing.collection || "User Listings",
-        name: listing.title,
-        description: listing.description || "User listing",
-        image: listing.imageUrl || "/placeholders/nft-1.svg",
-        price: { amount: Number.isFinite(priceAmount) ? priceAmount : 0, symbol: "sats" },
-        offerId,
-        status: "available",
-        tonalliDeepLink: `tonalli://offer/${offerId}`,
-        tonalliFallbackUrl: TONALLI_WEB_URL,
-        whatsappUrl: `https://wa.me/?text=${whatsappText}`,
-        source: "registry"
-      } satisfies Listing;
-    });
-  }, [registryListings]);
-
-  const demoListings = useMemo(() => {
-    return listings.map((listing) => ({ ...listing, source: "demo" as const }));
-  }, [listings]);
+  const registryDisplayListings = useMemo(
+    () =>
+      registryListings.map((listing) => ({
+        ...listing,
+        type:
+          listing.tokenId &&
+          Boolean(RMZ_TOKEN_ID) &&
+          listing.tokenId.toLowerCase() === RMZ_TOKEN_ID.toLowerCase()
+            ? "rmz"
+            : listing.type,
+        tonalliFallbackUrl: listing.tonalliFallbackUrl || TONALLI_WEB_URL,
+        source: "registry" as const
+      })),
+    [registryListings]
+  );
 
   const liveListings = useMemo(() => {
     return liveOffers
@@ -255,8 +241,8 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
   }, []);
 
   const combinedListings = useMemo<Listing[]>(() => {
-    return [...registryDisplayListings, ...demoListings];
-  }, [demoListings, registryDisplayListings]);
+    return registryDisplayListings;
+  }, [registryDisplayListings]);
 
   const wcCountRef = useRef(liveListings.length);
   const wcMountedRef = useRef(false);
@@ -300,6 +286,35 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
     [offerStatusCache]
   );
 
+  const isRegistryDisplayable = useCallback(
+    (listing: Listing) => {
+      if (listing.source !== "registry") {
+        return isListingVerified(listing);
+      }
+
+      const status = offerStatusCache[listing.offerId];
+      if (status?.status === "available") {
+        return true;
+      }
+      if (
+        status?.status === "spent" ||
+        status?.status === "invalid" ||
+        status?.status === "not_found"
+      ) {
+        return false;
+      }
+
+      const registryListing = listing as RegistryListing;
+      return (
+        Boolean(listing.offerId) &&
+        (!registryListing.verification ||
+          registryListing.verification === "available" ||
+          registryListing.verification === "unknown")
+      );
+    },
+    [isListingVerified, offerStatusCache]
+  );
+
   // Filter + sort entirely client-side for fast iteration.
   const filteredListings = useMemo(() => {
     const lowered = search.toLowerCase();
@@ -310,7 +325,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
       if (activeTab !== "favorites" && listing.type !== activeTab) {
         return false;
       }
-      if (!showDemo && !isListingVerified(listing)) {
+      if (!showDemo && !isRegistryDisplayable(listing)) {
         return false;
       }
       if (collection && listing.collection !== collection) {
@@ -340,7 +355,7 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
     search,
     sort,
     showDemo,
-    isListingVerified
+    isRegistryDisplayable
   ]);
 
   const filteredLiveListings = useMemo(() => {
@@ -374,9 +389,9 @@ export function MarketplaceClient({ listings }: MarketplaceClientProps) {
 
   const hasVerifiedListings = useMemo(() => {
     return [...liveListings, ...combinedListings].some((listing) =>
-      isListingVerified(listing)
+      isRegistryDisplayable(listing)
     );
-  }, [combinedListings, isListingVerified, liveListings]);
+  }, [combinedListings, isRegistryDisplayable, liveListings]);
 
   const handleRemove = useCallback((id: string) => {
     const next = removeListing(id);

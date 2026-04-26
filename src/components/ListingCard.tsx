@@ -72,6 +72,7 @@ export function ListingCard({
     termsStatus === "manual" &&
     Number.isFinite(listing.price.amount) &&
     listing.price.amount > 0;
+  const hasListingPrice = Number.isFinite(listing.price.amount) && listing.price.amount > 0;
   const displayPrice =
     termsStatus === "manual"
       ? hasManualPrice
@@ -79,7 +80,9 @@ export function ListingCard({
         : undefined
       : listing.source === "registry" && offerStatus?.priceSats !== undefined
         ? { amount: offerStatus.priceSats, symbol: "sats" }
-        : listing.price;
+        : hasListingPrice
+          ? listing.price
+          : undefined;
   const tokenSymbol =
     listing.type === "rmz"
       ? "RMZ"
@@ -550,6 +553,14 @@ export function ListingCard({
             {termsStatus === "manual" && hasManualPrice ? (
               <p className="mt-1 text-xs text-white/50">Seller-declared price</p>
             ) : null}
+          </div>
+        ) : listing.source === "registry" ? (
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white/50">Precio</span>
+              <span className="text-base font-semibold text-gold">Precio en la oferta</span>
+            </div>
+            <p className="mt-1 text-xs text-white/60">Ver oferta en Tonalli para confirmar.</p>
           </div>
         ) : null}
 
